@@ -1,10 +1,10 @@
-package be.vandeas
+package be.vandeas.domain.input
 
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class FileCreationResult(
+data class FileCreationOptions(
     val path: String,
     val fileName: String,
-    val success: Boolean
+    val content: ByteArray,
 )

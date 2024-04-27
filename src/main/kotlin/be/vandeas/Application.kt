@@ -1,13 +1,13 @@
 package be.vandeas
 
-import be.vandeas.plugins.configureHTTP
-import be.vandeas.plugins.configureMonitoring
-import be.vandeas.plugins.configureRouting
-import be.vandeas.plugins.configureSerialization
+import be.vandeas.plugins.*
 import io.ktor.server.application.*
+import io.ktor.server.cio.*
+import io.ktor.server.engine.*
 
 fun main(args: Array<String>) {
-    io.ktor.server.netty.EngineMain.main(args)
+    embeddedServer(CIO, port = 8081, host = "0.0.0.0", module = Application::module)
+        .start(wait = true)
 }
 
 fun Application.module() {
@@ -15,4 +15,5 @@ fun Application.module() {
     configureMonitoring()
     configureHTTP()
     configureRouting()
+    configureKoin()
 }
