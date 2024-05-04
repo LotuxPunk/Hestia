@@ -1,4 +1,4 @@
-package be.vandeas.domain.input
+package be.vandeas.dto
 
 import kotlinx.serialization.Serializable
 

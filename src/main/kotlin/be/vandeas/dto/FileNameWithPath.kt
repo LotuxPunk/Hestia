@@ -1,9 +1,9 @@
-package be.vandeas.domain.input
+package be.vandeas.dto
 
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class FileDeleteOptions(
-    val path: String,
+data class FileNameWithPath(
     val fileName: String,
+    val path: String
 )

@@ -1,21 +1,19 @@
 package be.vandeas.logic.impl
 
-import be.vandeas.domain.input.DirectoryDeleteOptions
-import be.vandeas.domain.input.FileCreationOptions
-import be.vandeas.domain.input.FileDeleteOptions
-import be.vandeas.domain.input.FileReadOptions
-import be.vandeas.domain.output.DirectoryDeleteResult
-import be.vandeas.domain.output.FileCreationResult
-import be.vandeas.domain.output.FileDeleteResult
-import be.vandeas.domain.output.FileReadResult
-import be.vandeas.handlers.FileHandler
+import be.vandeas.domain.*
+import be.vandeas.dto.DirectoryDeleteOptions
+import be.vandeas.dto.FileCreationOptions
+import be.vandeas.dto.FileDeleteOptions
+import be.vandeas.dto.FileReadOptions
+import be.vandeas.handler.FileHandler
 import be.vandeas.logic.FileLogic
+import io.ktor.util.*
 import java.nio.file.Paths
 
 class FileLogicImpl : FileLogic {
     override fun createFile(options: FileCreationOptions): FileCreationResult {
         return FileHandler.write(
-            content = options.content,
+            content = options.content.decodeBase64Bytes(),
             filePath = Paths.get(options.path, options.fileName)
         )
     }
@@ -33,10 +31,15 @@ class FileLogicImpl : FileLogic {
         )
     }
 
-    override fun readFile(fileReadOptions: FileReadOptions): FileReadResult {
+    override fun readFile(fileReadOptions: FileReadOptions): FileBytesReadResult {
         return FileHandler.read(
             path = Paths.get(fileReadOptions.path, fileReadOptions.fileName)
         )
     }
 
+    override fun getFile(fileReadOptions: FileReadOptions): FileReadResult {
+        return FileHandler.get(
+            path = Paths.get(fileReadOptions.path, fileReadOptions.fileName)
+        )
+    }
 }

@@ -1,17 +1,12 @@
 package be.vandeas.plugins
 
-import be.vandeas.domain.input.DirectoryDeleteOptions
-import be.vandeas.domain.input.FileCreationOptions
-import be.vandeas.domain.input.FileDeleteOptions
-import be.vandeas.domain.input.FileReadOptions
-import be.vandeas.domain.output.DirectoryDeleteResult
-import be.vandeas.domain.output.FileCreationResult
-import be.vandeas.domain.output.FileDeleteResult
-import be.vandeas.domain.output.FileReadResult
+import be.vandeas.domain.*
+import be.vandeas.dto.*
 import be.vandeas.logic.FileLogic
 import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.http.content.*
+import io.ktor.server.plugins.autohead.*
+import io.ktor.server.plugins.partialcontent.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -19,6 +14,8 @@ import io.ktor.util.*
 import org.koin.ktor.ext.inject
 
 fun Application.configureRouting() {
+    install(PartialContent)
+    install(AutoHeadResponse)
 
     val fileLogic by inject<FileLogic>()
 
@@ -29,12 +26,61 @@ fun Application.configureRouting() {
                 val accept = call.request.accept()
 
                 when (val result = fileLogic.readFile(options)) {
-                    is FileReadResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
-                    is FileReadResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path, "fileName" to options.fileName))
-                    is FileReadResult.Success -> when(accept) {
+                    is FileBytesReadResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
+                    is FileBytesReadResult.NotFound -> call.respond(HttpStatusCode.NotFound, FileNameWithPath(path = options.path, fileName = options.fileName))
+                    is FileBytesReadResult.Success -> when(accept) {
                         ContentType.Application.Json.contentType -> call.respond(HttpStatusCode.OK, mapOf("content" to result.data.encodeBase64(), "fileName" to options.fileName))
                         ContentType.Application.OctetStream.contentType -> call.respondBytes(result.data)
                         else -> call.respond(HttpStatusCode.NotAcceptable, "Accept header must be application/json or application/octet-stream")
+                    }
+                }
+            }
+            get("/{path}/{fileName}") {
+                val path = call.parameters["path"] ?: ""
+                val fileName = call.parameters["fileName"] ?: ""
+
+                if (path.isBlank() || fileName.isBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("path" to path, "fileName" to fileName))
+                    return@get
+                }
+
+                val options = FileReadOptions(
+                    path = path,
+                    fileName = fileName
+                )
+
+                val accept = call.request.accept()
+
+                when (val result = fileLogic.readFile(options)) {
+                    is FileBytesReadResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
+                    is FileBytesReadResult.NotFound -> call.respond(HttpStatusCode.NotFound, FileNameWithPath(path = options.path, fileName = options.fileName))
+                    is FileBytesReadResult.Success -> when(accept) {
+                        ContentType.Application.Json.contentType -> call.respond(HttpStatusCode.OK, mapOf("content" to result.data.encodeBase64(), "fileName" to options.fileName))
+                        ContentType.Application.OctetStream.contentType -> call.respondBytes(result.data)
+                        else -> call.respond(HttpStatusCode.NotAcceptable, "Accept header must be application/json or application/octet-stream")
+                    }
+                }
+            }
+
+            get("/file") {
+                val path = call.request.queryParameters["path"] ?: ""
+                val fileName = call.request.queryParameters["fileName"] ?: ""
+
+                if (path.isBlank() || fileName.isBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("path" to path, "fileName" to fileName))
+                    return@get
+                }
+
+                when (val result = fileLogic.getFile(FileReadOptions(path = path, fileName = fileName))) {
+                    is FileReadResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
+                    is FileReadResult.NotFound -> call.respond(HttpStatusCode.NotFound, FileNameWithPath(path = path, fileName = fileName))
+                    is FileReadResult.Success -> {
+                        call.response.header(
+                            HttpHeaders.ContentDisposition,
+                            ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, fileName)
+                                .toString()
+                        )
+                        call.respondFile(result.file)
                     }
                 }
             }
@@ -43,10 +89,10 @@ fun Application.configureRouting() {
                 val options: FileCreationOptions = call.receive()
 
                 when (val result = fileLogic.createFile(options)) {
-                    is FileCreationResult.Duplicate -> call.respond(HttpStatusCode.Conflict, mapOf("path" to options.path, "fileName" to options.fileName))
+                    is FileCreationResult.Duplicate -> call.respond(HttpStatusCode.Conflict, FileNameWithPath(path = options.path, fileName = options.fileName))
                     is FileCreationResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
                     is FileCreationResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
-                    is FileCreationResult.Success -> call.respond(HttpStatusCode.Created, mapOf("path" to options.path, "fileName" to options.fileName))
+                    is FileCreationResult.Success -> call.respond(HttpStatusCode.Created, FileNameWithPath(path = options.path, fileName = options.fileName))
                 }
             }
 
@@ -58,8 +104,8 @@ fun Application.configureRouting() {
 
                 when (val result = fileLogic.deleteFile(options)) {
                     is FileDeleteResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
-                    is FileDeleteResult.IsADirectory -> call.respond(HttpStatusCode.BadRequest, mapOf("path" to options.path, "fileName" to options.fileName))
-                    is FileDeleteResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path, "fileName" to options.fileName))
+                    is FileDeleteResult.IsADirectory -> call.respond(HttpStatusCode.BadRequest, FileNameWithPath(path = options.path, fileName = options.fileName))
+                    is FileDeleteResult.NotFound -> call.respond(HttpStatusCode.NotFound, FileNameWithPath(path = options.path, fileName = options.fileName))
                     is FileDeleteResult.Success -> call.respond(HttpStatusCode.NoContent)
                 }
             }

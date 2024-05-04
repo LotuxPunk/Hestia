@@ -1,4 +1,4 @@
-package be.vandeas.domain.output
+package be.vandeas.domain
 
 import java.nio.file.Path
 

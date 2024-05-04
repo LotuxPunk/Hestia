@@ -1,9 +1,6 @@
-package be.vandeas.handlers
+package be.vandeas.handler
 
-import be.vandeas.domain.output.DirectoryDeleteResult
-import be.vandeas.domain.output.FileCreationResult
-import be.vandeas.domain.output.FileDeleteResult
-import be.vandeas.domain.output.FileReadResult
+import be.vandeas.domain.*
 import io.ktor.util.logging.*
 import io.ktor.utils.io.errors.*
 import java.net.URI
@@ -24,21 +21,22 @@ object FileHandler {
      * @return A [FileCreationResult] indicating the result of the operation.
      */
     fun write(content: ByteArray, filePath: Path): FileCreationResult {
+        val path = BASE_DIRECTORY.resolve(filePath)
         try {
-            if (!filePath.parent.exists()) {
-                if (!filePath.parent.toFile().mkdirs()) {
-                    LOGGER.error("Failed to create directory: {}", filePath.parent)
-                    return FileCreationResult.Failure("Failed to create directory: ${filePath.parent}")
+            if (!path.parent.exists()) {
+                if (!path.parent.toFile().mkdirs()) {
+                    LOGGER.error("Failed to create directory: {}", path.parent)
+                    return FileCreationResult.Failure("Failed to create directory: ${path.parent}")
                 }
-                LOGGER.debug("Created directory: {}", filePath.parent)
+                LOGGER.debug("Created directory: {}", path.parent)
             }
-            return FileCreationResult.Success(Files.write(filePath, content, StandardOpenOption.CREATE_NEW))
+            return FileCreationResult.Success(Files.write(path, content, StandardOpenOption.CREATE_NEW))
         } catch (e: InvalidPathException) {
             LOGGER.error(e)
-            return FileCreationResult.NotFound(filePath)
+            return FileCreationResult.NotFound(path)
         } catch (e: FileAlreadyExistsException) {
             LOGGER.error(e)
-            return FileCreationResult.Duplicate(filePath)
+            return FileCreationResult.Duplicate(path)
         } catch (e: Exception) {
             LOGGER.error(e)
             return FileCreationResult.Failure(e.message ?: "An error occurred while writing the file.")
@@ -50,19 +48,40 @@ object FileHandler {
      *
      * @param path The path to the file to read.
      *
-     * @return A [FileReadResult] indicating the result of the operation.
+     * @return A [FileBytesReadResult] indicating the result of the operation.
      */
-    fun read(path: Path): FileReadResult {
+    fun get(path: Path): FileReadResult {
         val filePath = BASE_DIRECTORY.resolve(path)
 
         try {
-            return FileReadResult.Success(Files.readAllBytes(filePath).toList().toByteArray())
-        } catch (e: InvalidPathException) {
+            return FileReadResult.Success(filePath.toFile())
+        } catch (e: UnsupportedOperationException) {
             LOGGER.error(e)
             return FileReadResult.NotFound(filePath)
         } catch (e: Exception) {
             LOGGER.error(e)
             return FileReadResult.Failure(e.message ?: "An error occurred while reading the file.")
+        }
+    }
+
+    /**
+     * Reads a file.
+     *
+     * @param path The path to the file to read.
+     *
+     * @return A [FileBytesReadResult] indicating the result of the operation.
+     */
+    fun read(path: Path): FileBytesReadResult {
+        val filePath = BASE_DIRECTORY.resolve(path)
+
+        try {
+            return FileBytesReadResult.Success(Files.readAllBytes(filePath).toList().toByteArray())
+        } catch (e: InvalidPathException) {
+            LOGGER.error(e)
+            return FileBytesReadResult.NotFound(filePath)
+        } catch (e: Exception) {
+            LOGGER.error(e)
+            return FileBytesReadResult.Failure(e.message ?: "An error occurred while reading the file.")
         }
     }
 

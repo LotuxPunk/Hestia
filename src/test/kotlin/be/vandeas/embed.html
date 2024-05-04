@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Embed test</title>
+</head>
+<body>
+    <h1>
+        Embedded content
+    </h1>
+    <div>
+        <img alt="Embedded image"
+             src="http://localhost:8082/v1/file?path=03d72d4f-2325-480c-8446-b3b9760f955c&fileName=img.webp"
+             width="200">
+
+    </div>
+    <div>
+        <embed src="http://localhost:8082/v1/file?path=03d72d4f-2325-480c-8446-b3b9760f955c&fileName=file.pdf"
+               frameBorder="0"
+               scrolling="auto"
+               height="100%"
+               width="100%"
+        >
+    </div>
+    <div>
+        <iframe src="http://localhost:8082/v1/file?path=03d72d4f-2325-480c-8446-b3b9760f955c&fileName=file.pdf"
+                type="application/pdf"
+                height="100%"
+                width="100%"
+        >
+        </iframe>
+
+</body>
+</html>
