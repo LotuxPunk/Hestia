@@ -36,8 +36,15 @@ class ApplicationTest {
             fileNames.forEach { fileName ->
                 val textFile = this::class.java.classLoader.getResource("input/$fileName")!!.toURI().toPath().toFile()
 
-                client.post("http://localhost:8082/v1") {
+                val token = client.get("http://localhost:8082/v1/auth/token/$name/$fileName") {
+                    header("Authorization", System.getenv("API_KEY"))
+                }.apply {
+                    assertEquals(HttpStatusCode.OK, status)
+                }.body<Map<String, String>>()["token"]
+
+                client.post("http://localhost:8082/v1/file") {
                     contentType(ContentType.Application.Json)
+                    header("Authorization", token!!)
                     setBody(
                         FileCreationOptions(
                             path = name,
