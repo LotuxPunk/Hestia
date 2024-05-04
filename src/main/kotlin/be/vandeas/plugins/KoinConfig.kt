@@ -1,7 +1,11 @@
 package be.vandeas.plugins
 
+import be.vandeas.logic.AuthLogic
 import be.vandeas.logic.FileLogic
+import be.vandeas.logic.impl.AuthLogicImpl
 import be.vandeas.logic.impl.FileLogicImpl
+import be.vandeas.service.FileService
+import be.vandeas.service.impl.FileServiceImpl
 import io.ktor.server.application.*
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
@@ -13,6 +17,14 @@ import org.koin.logger.slf4jLogger
 val appModule = module {
     single<FileLogic> {
         FileLogicImpl()
+    }
+
+    single<AuthLogic> {
+        AuthLogicImpl()
+    }
+
+    single<FileService> {
+        FileServiceImpl(get(), get())
     }
 }
 

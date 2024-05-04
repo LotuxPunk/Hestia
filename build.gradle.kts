@@ -40,8 +40,13 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:$logback_version")
     implementation("io.ktor:ktor-server-config-yaml:2.3.10")
 
+    // Ktor features plugins
     implementation("io.ktor:ktor-server-partial-content:$ktor_version")
     implementation("io.ktor:ktor-server-auto-head-response:$ktor_version")
+    implementation("io.ktor:ktor-server-status-pages:$ktor_version")
+
+    // Cache4k
+    implementation("io.github.reactivecircus.cache4k:cache4k:0.13.0")
 
     // Koin for Ktor
     implementation("io.insert-koin:koin-ktor:$koin_ktor")
