@@ -75,7 +75,7 @@ object FileHandler {
         val filePath = BASE_DIRECTORY.resolve(path)
 
         try {
-            return FileBytesReadResult.Success(Files.readAllBytes(filePath).toList().toByteArray())
+            return FileBytesReadResult.Success(Files.readAllBytes(filePath).toList().toByteArray(), filePath)
         } catch (e: InvalidPathException) {
             LOGGER.error(e)
             return FileBytesReadResult.NotFound(filePath)

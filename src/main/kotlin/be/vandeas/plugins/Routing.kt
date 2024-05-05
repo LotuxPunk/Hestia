@@ -2,6 +2,7 @@ package be.vandeas.plugins
 
 import be.vandeas.domain.*
 import be.vandeas.dto.*
+import be.vandeas.dto.ReadFileBytesResult.Companion.mapToReadFileBytesDto
 import be.vandeas.logic.AuthLogic
 import be.vandeas.service.FileService
 import io.ktor.http.*
@@ -27,14 +28,14 @@ fun Application.configureRouting() {
                 get {
                     val options: FileReadOptions = call.receive()
                     val authorization = call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
-                    val accept = call.request.accept()
+                    val accept = call.request.accept()?.let { ContentType.parse(it) } ?: ContentType.Application.Json
 
                     when (val result = fileService.readFile(authorization, options)) {
                         is FileBytesReadResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
                         is FileBytesReadResult.NotFound -> call.respond(HttpStatusCode.NotFound, FileNameWithPath(path = options.path, fileName = options.fileName))
                         is FileBytesReadResult.Success -> when(accept) {
-                            ContentType.Application.Json.contentType -> call.respond(HttpStatusCode.OK, mapOf("content" to result.data.encodeBase64(), "fileName" to options.fileName))
-                            ContentType.Application.OctetStream.contentType -> call.respondBytes(result.data)
+                            ContentType.Application.Json -> call.respond(HttpStatusCode.OK, mapOf("content" to result.data.encodeBase64(), "fileName" to options.fileName))
+                            ContentType.Application.OctetStream -> call.respondBytes(result.data)
                             else -> call.respond(HttpStatusCode.NotAcceptable, "Accept header must be application/json or application/octet-stream")
                         }
                     }
@@ -43,7 +44,7 @@ fun Application.configureRouting() {
                     val path = call.parameters["path"] ?: ""
                     val fileName = call.parameters["fileName"] ?: ""
                     val authorization = call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
-                    val accept = call.request.accept()
+                    val accept = call.request.accept()?.let { ContentType.parse(it) } ?: ContentType.Application.Json
 
                     if (path.isBlank() || fileName.isBlank()) {
                         call.respond(HttpStatusCode.BadRequest, mapOf("path" to path, "fileName" to fileName))
@@ -59,8 +60,8 @@ fun Application.configureRouting() {
                         is FileBytesReadResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
                         is FileBytesReadResult.NotFound -> call.respond(HttpStatusCode.NotFound, FileNameWithPath(path = options.path, fileName = options.fileName))
                         is FileBytesReadResult.Success -> when(accept) {
-                            ContentType.Application.Json.contentType -> call.respond(HttpStatusCode.OK, mapOf("content" to result.data.encodeBase64(), "fileName" to options.fileName))
-                            ContentType.Application.OctetStream.contentType -> call.respondBytes(result.data)
+                            ContentType.Application.Json -> call.respond(HttpStatusCode.OK, result.mapToReadFileBytesDto())
+                            ContentType.Application.OctetStream -> call.respondBytes(result.data)
                             else -> call.respond(HttpStatusCode.NotAcceptable, "Accept header must be application/json or application/octet-stream")
                         }
                     }

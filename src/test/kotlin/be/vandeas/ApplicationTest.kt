@@ -1,6 +1,7 @@
 package be.vandeas
 
 import be.vandeas.dto.FileCreationOptions
+import be.vandeas.dto.ReadFileBytesResult
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
@@ -17,16 +18,26 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientCon
 
 class ApplicationTest {
 
+    val apiKey = System.getenv("API_KEY") ?: throw IllegalStateException("API_KEY is not set")
+
     private val client = HttpClient(CIO) {
         install(ClientContentNegotiation) {
             json()
         }
     }
 
+    private suspend fun getToken(dir: String, fileName: String): String?{
+        return client.get("http://localhost:8082/v1/auth/token/$dir/$fileName") {
+            header("Authorization", apiKey!!)
+        }.apply {
+            assertEquals(HttpStatusCode.OK, status)
+        }.body<Map<String, String>>()["token"]
+    }
+
     @Test
-    fun testRoot() {
+    fun `Should be able to write and read`() {
         runBlocking {
-            val name = UUID.randomUUID().toString()
+            val dirName = UUID.randomUUID().toString()
             val fileNames = listOf(
                 "file.txt",
                 "file.pdf",
@@ -34,28 +45,64 @@ class ApplicationTest {
             )
 
             fileNames.forEach { fileName ->
-                val textFile = this::class.java.classLoader.getResource("input/$fileName")!!.toURI().toPath().toFile()
-
-                val token = client.get("http://localhost:8082/v1/auth/token/$name/$fileName") {
-                    header("Authorization", System.getenv("API_KEY"))
-                }.apply {
-                    assertEquals(HttpStatusCode.OK, status)
-                }.body<Map<String, String>>()["token"]
+                val testedFile = this::class.java.classLoader.getResource("input/$fileName")!!.toURI().toPath().toFile()
 
                 client.post("http://localhost:8082/v1/file") {
                     contentType(ContentType.Application.Json)
-                    header("Authorization", token!!)
+                    accept(ContentType.Application.Json)
+                    header("Authorization", getToken(dirName, fileName)!!)
                     setBody(
                         FileCreationOptions(
-                            path = name,
+                            path = dirName,
                             fileName = fileName,
-                            content = textFile.readBytes().encodeBase64()
+                            content = testedFile.readBytes().encodeBase64()
                         )
                     )
                 }.apply {
                     assertEquals(HttpStatusCode.Created, status)
-                    assertEquals(mapOf("path" to name, "fileName" to fileName) , body())
+                    assertEquals(mapOf("path" to dirName, "fileName" to fileName) , body())
                 }
+
+                client.get("http://localhost:8082/v1/file/$dirName/$fileName") {
+                    header("Authorization", getToken(dirName, fileName)!!)
+                    contentType(ContentType.Application.Json)
+                    accept(ContentType.Application.Json)
+                }.apply {
+                    assertEquals(HttpStatusCode.OK, status)
+                    assertEquals(testedFile.readBytes().toList(), body<ReadFileBytesResult>().content.decodeBase64Bytes().toList())
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `Should not be able to re-use the same token twice`() {
+        runBlocking {
+            val dirName = UUID.randomUUID().toString()
+            val fileName = "file.txt"
+            val testedFile = this::class.java.classLoader.getResource("input/$fileName")!!.toURI().toPath().toFile()
+
+            val token = getToken(dirName, fileName)
+
+            client.post("http://localhost:8082/v1/file") {
+                contentType(ContentType.Application.Json)
+                header("Authorization", token!!)
+                setBody(
+                    FileCreationOptions(
+                        path = dirName,
+                        fileName = fileName,
+                        content = testedFile.readBytes().encodeBase64()
+                    )
+                )
+            }.apply {
+                assertEquals(HttpStatusCode.Created, status)
+                assertEquals(mapOf("path" to dirName, "fileName" to fileName) , body())
+            }
+
+            client.get("http://localhost:8082/v1/file/$dirName/$fileName") {
+                header("Authorization", token!!)
+            }.apply {
+                assertEquals(HttpStatusCode.Unauthorized, status)
             }
         }
     }
