@@ -70,7 +70,7 @@ fun Application.configureRouting() {
                 get("/embed/{path}/{fileName}") {
                     val path = call.parameters["path"] ?: ""
                     val fileName = call.parameters["fileName"] ?: ""
-                    val authorization = call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
+                    val authorization = call.request.queryParameters["token"] ?: call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
 
                     if (path.isBlank() || fileName.isBlank()) {
                         call.respond(HttpStatusCode.BadRequest, mapOf("path" to path, "fileName" to fileName))
