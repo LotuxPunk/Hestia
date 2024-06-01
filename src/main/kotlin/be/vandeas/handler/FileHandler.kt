@@ -130,7 +130,8 @@ object FileHandler {
      * @return A [DirectoryDeleteResult] indicating the result of the operation.
      */
     @OptIn(ExperimentalPathApi::class)
-    fun deleteDirectory(filePath: Path, recursive: Boolean): DirectoryDeleteResult {
+    fun deleteDirectory(path: Path, recursive: Boolean): DirectoryDeleteResult {
+        val filePath = BASE_DIRECTORY.resolve(path)
         try {
             if (filePath.exists()) {
                 if (filePath.isDirectory()) {
@@ -149,7 +150,7 @@ object FileHandler {
                 }
                 return DirectoryDeleteResult.IsAFile(filePath)
             }
-            return DirectoryDeleteResult.Success(filePath)
+            return DirectoryDeleteResult.NotFound(filePath)
         } catch (e: IOException) {
             LOGGER.error(e)
             return DirectoryDeleteResult.Failure(e.message ?: "An error occurred while reading the file.")

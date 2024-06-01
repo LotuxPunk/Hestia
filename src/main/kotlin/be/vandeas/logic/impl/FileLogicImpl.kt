@@ -26,7 +26,7 @@ class FileLogicImpl : FileLogic {
 
     override fun deleteDirectory(directoryDeleteOptions: DirectoryDeleteOptions): DirectoryDeleteResult {
         return FileHandler.deleteDirectory(
-            filePath = Paths.get(directoryDeleteOptions.path),
+            path = Paths.get(directoryDeleteOptions.path),
             recursive = directoryDeleteOptions.recursive
         )
     }
