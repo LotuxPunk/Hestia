@@ -52,7 +52,7 @@ fun Application.configureRouting() {
                     }
                 }
 
-                get("/embed/") {
+                get("/embed") {
                     val path = call.request.queryParameters["path"] ?: ""
                     val fileName = call.request.queryParameters["fileName"] ?: ""
                     val authorization = call.request.queryParameters["token"] ?: call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
