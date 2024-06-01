@@ -22,9 +22,10 @@ class AuthLogicImpl : AuthLogic {
     }
 
     override fun validateOneTimeToken(token: String, path: Path): Path =
-        tokenCache.get(token)?.takeIf { it == path }?.also {
-            tokenCache.invalidate(token)
-        } ?: throw AuthorizationException("Invalid one-time token")
+        tokenCache.get(token)
+            ?.takeIf { it == path }?.also {
+                tokenCache.invalidate(token)
+            } ?: throw AuthorizationException("Invalid one-time token")
 
     override fun <T> guard(token: String, path: Path, protectedMethod: () -> T): T =
         validateOneTimeToken(token, path).let { protectedMethod() }

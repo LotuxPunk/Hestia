@@ -26,23 +26,8 @@ fun Application.configureRouting() {
         route("/v1") {
             route("/file") {
                 get {
-                    val options: FileReadOptions = call.receive()
-                    val authorization = call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
-                    val accept = call.request.accept()?.let { ContentType.parse(it) } ?: ContentType.Application.Json
-
-                    when (val result = fileService.readFile(authorization, options)) {
-                        is FileBytesReadResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
-                        is FileBytesReadResult.NotFound -> call.respond(HttpStatusCode.NotFound, FileNameWithPath(path = options.path, fileName = options.fileName))
-                        is FileBytesReadResult.Success -> when(accept) {
-                            ContentType.Application.Json -> call.respond(HttpStatusCode.OK, mapOf("content" to result.data.encodeBase64(), "fileName" to options.fileName))
-                            ContentType.Application.OctetStream -> call.respondBytes(result.data)
-                            else -> call.respond(HttpStatusCode.NotAcceptable, "Accept header must be application/json or application/octet-stream")
-                        }
-                    }
-                }
-                get("/{path}/{fileName}") {
-                    val path = call.parameters["path"] ?: ""
-                    val fileName = call.parameters["fileName"] ?: ""
+                    val path = call.request.queryParameters["path"] ?: ""
+                    val fileName = call.request.queryParameters["fileName"] ?: ""
                     val authorization = call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
                     val accept = call.request.accept()?.let { ContentType.parse(it) } ?: ContentType.Application.Json
 
@@ -67,9 +52,9 @@ fun Application.configureRouting() {
                     }
                 }
 
-                get("/embed/{path}/{fileName}") {
-                    val path = call.parameters["path"] ?: ""
-                    val fileName = call.parameters["fileName"] ?: ""
+                get("/embed/") {
+                    val path = call.request.queryParameters["path"] ?: ""
+                    val fileName = call.request.queryParameters["fileName"] ?: ""
                     val authorization = call.request.queryParameters["token"] ?: call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
 
                     if (path.isBlank() || fileName.isBlank()) {
@@ -103,42 +88,46 @@ fun Application.configureRouting() {
                     }
                 }
 
-                delete("/{path}/{fileName}") {
-                    val options = FileDeleteOptions(
-                        path = call.parameters["path"] ?: "",
-                        fileName = call.parameters["fileName"] ?: ""
-                    )
+                delete {
+                    val path = call.request.queryParameters["path"] ?: throw IllegalArgumentException("path query parameter is required")
+                    val fileName = call.request.queryParameters["fileName"]
+                    val recursive = call.request.queryParameters["recursive"]?.toBoolean() ?: false
+
                     val authorization = call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
 
-                    when (val result = fileService.deleteFile(authorization, options)) {
-                        is FileDeleteResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
-                        is FileDeleteResult.IsADirectory -> call.respond(HttpStatusCode.BadRequest, FileNameWithPath(path = options.path, fileName = options.fileName))
-                        is FileDeleteResult.NotFound -> call.respond(HttpStatusCode.NotFound, FileNameWithPath(path = options.path, fileName = options.fileName))
-                        is FileDeleteResult.Success -> call.respond(HttpStatusCode.NoContent)
-                    }
-                }
+                    if (fileName == null) {
+                        val options = DirectoryDeleteOptions(
+                            path = path,
+                            recursive = recursive
+                        )
 
-                delete("/{path}") {
-                    val options = DirectoryDeleteOptions(
-                        path = call.parameters["path"] ?: "",
-                        recursive = call.request.queryParameters["recursive"]?.toBoolean() ?: false
-                    )
-                    val authorization = call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
+                        when (val result = fileService.deleteDirectory(authorization, options)) {
+                            is DirectoryDeleteResult.DirectoryHasChildren -> call.respond(HttpStatusCode.BadRequest, mapOf("path" to options.path, "hasChildren" to true))
+                            is DirectoryDeleteResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
+                            is DirectoryDeleteResult.IsAFile -> call.respond(HttpStatusCode.BadRequest, mapOf("path" to options.path, "hasChildren" to false))
+                            is DirectoryDeleteResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
+                            is DirectoryDeleteResult.Success -> call.respond(HttpStatusCode.NoContent)
+                        }
+                    } else {
+                        val options = FileDeleteOptions(
+                            path = call.request.queryParameters["path"] ?: throw IllegalArgumentException("path query parameter is required"),
+                            fileName = call.request.queryParameters["fileName"] ?: ""
+                        )
 
-                    when (val result = fileService.deleteDirectory(authorization, options)) {
-                        is DirectoryDeleteResult.DirectoryHasChildren -> call.respond(HttpStatusCode.BadRequest, mapOf("path" to options.path, "hasChildren" to true))
-                        is DirectoryDeleteResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
-                        is DirectoryDeleteResult.IsAFile -> call.respond(HttpStatusCode.BadRequest, mapOf("path" to options.path, "hasChildren" to false))
-                        is DirectoryDeleteResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
-                        is DirectoryDeleteResult.Success -> call.respond(HttpStatusCode.NoContent)
+                        when (val result = fileService.deleteFile(authorization, options)) {
+                            is FileDeleteResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
+                            is FileDeleteResult.IsADirectory -> call.respond(HttpStatusCode.BadRequest, FileNameWithPath(path = options.path, fileName = options.fileName))
+                            is FileDeleteResult.NotFound -> call.respond(HttpStatusCode.NotFound, FileNameWithPath(path = options.path, fileName = options.fileName))
+                            is FileDeleteResult.Success -> call.respond(HttpStatusCode.NoContent)
+                        }
                     }
                 }
             }
             route("/auth") {
-                get("/token/{path}/{fileName}") {
+                get("/token") {
                     val authorization = call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
-                    val path = call.parameters["path"] ?: throw IllegalArgumentException("path is required")
-                    val fileName = call.parameters["fileName"] ?: throw IllegalArgumentException("fileName is required")
+                    val path = call.request.queryParameters["path"] ?: throw IllegalArgumentException("path is required")
+                    val fileName = call.request.queryParameters["fileName"] ?: throw IllegalArgumentException("fileName is required")
 
                     authLogic.getOneTimeToken(authorization, path, fileName).let {
                         call.respond(HttpStatusCode.OK, mapOf("token" to it))

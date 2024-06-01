@@ -76,6 +76,9 @@ object FileHandler {
 
         try {
             return FileBytesReadResult.Success(Files.readAllBytes(filePath).toList().toByteArray(), filePath)
+        } catch (e: NoSuchFileException) {
+            LOGGER.error(e)
+            return FileBytesReadResult.NotFound(filePath)
         } catch (e: InvalidPathException) {
             LOGGER.error(e)
             return FileBytesReadResult.NotFound(filePath)
@@ -88,19 +91,24 @@ object FileHandler {
     /**
      * Deletes a file.
      *
-     * @param filePath The path to the file to delete.
+     * @param path The path to the file to delete.
      *
      * @return A [FileDeleteResult] indicating the result of the operation.
      */
-    fun deleteFile(filePath: Path): FileDeleteResult {
+    fun deleteFile(path: Path): FileDeleteResult {
+        val filePath = BASE_DIRECTORY.resolve(path)
         try {
             if (filePath.exists()) {
                 if (filePath.isDirectory()) {
                     return FileDeleteResult.IsADirectory(filePath)
                 }
-                filePath.deleteExisting()
+                val success = filePath.toFile().delete()
+                if (!success) {
+                    return FileDeleteResult.Failure("Failed to delete file: $filePath")
+                }
+                return FileDeleteResult.Success(filePath)
             }
-            return FileDeleteResult.Success(filePath)
+            return FileDeleteResult.NotFound(filePath)
         } catch (e: InvalidPathException) {
             LOGGER.error(e)
             return FileDeleteResult.Success(filePath)
@@ -109,7 +117,7 @@ object FileHandler {
             return FileDeleteResult.NotFound(filePath)
         } catch (e: Exception) {
             LOGGER.error(e)
-            return FileDeleteResult.Failure(e.message ?: "An error occurred while reading the file.")
+            return FileDeleteResult.Failure(e.message ?: "An error occurred while deleting the file.")
         }
     }
 

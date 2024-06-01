@@ -27,8 +27,8 @@ class ApplicationTest {
     }
 
     private suspend fun getToken(dir: String, fileName: String): String?{
-        return client.get("http://localhost:8082/v1/auth/token/$dir/$fileName") {
-            header("Authorization", apiKey!!)
+        return client.get("http://localhost:8082/v1/auth/token?path=$dir&fileName=$fileName") {
+            header("Authorization", apiKey)
         }.apply {
             assertEquals(HttpStatusCode.OK, status)
         }.body<Map<String, String>>()["token"]
@@ -63,7 +63,7 @@ class ApplicationTest {
                     assertEquals(mapOf("path" to dirName, "fileName" to fileName) , body())
                 }
 
-                client.get("http://localhost:8082/v1/file/$dirName/$fileName") {
+                client.get("http://localhost:8082/v1/file?path=$dirName&fileName=$fileName") {
                     header("Authorization", getToken(dirName, fileName)!!)
                     contentType(ContentType.Application.Json)
                     accept(ContentType.Application.Json)
@@ -99,11 +99,48 @@ class ApplicationTest {
                 assertEquals(mapOf("path" to dirName, "fileName" to fileName) , body())
             }
 
-            client.get("http://localhost:8082/v1/file/$dirName/$fileName") {
+            client.get("http://localhost:8082/v1/file?path=$dirName&fileName=$fileName") {
                 header("Authorization", token!!)
             }.apply {
                 assertEquals(HttpStatusCode.Unauthorized, status)
             }
         }
     }
+
+    @Test
+    fun `Should be able to delete a file`() {
+        runBlocking {
+            val dirName = UUID.randomUUID().toString()
+            val fileName = "file.txt"
+            val testedFile = this::class.java.classLoader.getResource("input/$fileName")!!.toURI().toPath().toFile()
+
+            client.post("http://localhost:8082/v1/file") {
+                contentType(ContentType.Application.Json)
+                header("Authorization", getToken(dirName, fileName)!!)
+                setBody(
+                    FileCreationOptions(
+                        path = dirName,
+                        fileName = fileName,
+                        content = testedFile.readBytes().encodeBase64()
+                    )
+                )
+            }.apply {
+                assertEquals(HttpStatusCode.Created, status)
+                assertEquals(mapOf("path" to dirName, "fileName" to fileName) , body())
+            }
+
+            client.delete("http://localhost:8082/v1/file?path=$dirName&fileName=$fileName") {
+                header("Authorization", getToken(dirName, fileName)!!)
+            }.apply {
+                assertEquals(HttpStatusCode.NoContent, status)
+            }
+
+            client.get("http://localhost:8082/v1/file?path=$dirName&fileName=$fileName") {
+                header("Authorization", getToken(dirName, fileName)!!)
+            }.apply {
+                assertEquals(HttpStatusCode.NotFound, status)
+            }
+        }
+    }
+
 }

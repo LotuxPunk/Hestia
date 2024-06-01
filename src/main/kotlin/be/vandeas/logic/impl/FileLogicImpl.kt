@@ -20,7 +20,7 @@ class FileLogicImpl : FileLogic {
 
     override fun deleteFile(fileDeleteOptions: FileDeleteOptions): FileDeleteResult {
         return FileHandler.deleteFile(
-            filePath = Paths.get(fileDeleteOptions.path, fileDeleteOptions.fileName)
+            path = Paths.get(fileDeleteOptions.path, fileDeleteOptions.fileName)
         )
     }
 
