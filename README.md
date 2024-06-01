@@ -113,6 +113,19 @@ If the `Accept` header is `application/json`:
 
 If the `Accept` header is `application/octet-stream`: stream the file.
 
+
+##### GET `/v1/file/embed`
+
+Downloads a file from the server, usually used to embed the file in an `<img>`, `<audio>`, `<video>` or `<iframe>` tag.
+
+###### Query Parameters
+
+| Name       | Type     | Description                                   |
+|------------|----------|-----------------------------------------------|
+| `fileName` | `string` | The name of the file that will be downloaded. |
+| `path`     | `string` | The path of the file that will be downloaded. |
+| `token`    | `string` | The one-time-token.                           |
+
 ##### DELETE `/v1/file`
 
 Deletes a file from the server.
