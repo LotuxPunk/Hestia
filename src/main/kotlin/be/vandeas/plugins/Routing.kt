@@ -12,7 +12,6 @@ import io.ktor.server.plugins.partialcontent.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.ktor.util.*
 import org.koin.ktor.ext.inject
 
 fun Application.configureRouting() {
@@ -55,6 +54,7 @@ fun Application.configureRouting() {
                 get("/embed") {
                     val path = call.request.queryParameters["path"] ?: ""
                     val fileName = call.request.queryParameters["fileName"] ?: ""
+                    val downloadFileName = call.request.queryParameters["download"] ?: ""
                     val authorization = call.request.queryParameters["token"] ?: call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
 
                     if (path.isBlank() || fileName.isBlank()) {
@@ -71,7 +71,13 @@ fun Application.configureRouting() {
                                 ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, fileName)
                                     .toString()
                             )
-                            call.respondFile(result.file)
+                            call.respondFile(result.file) {
+                                headers {
+                                    if (downloadFileName.isNotBlank()) {
+                                        append(HttpHeaders.ContentDisposition, ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, downloadFileName).toString())
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -5,9 +5,9 @@ val logback_version: String by project
 val koin_ktor: String by project
 
 plugins {
-    kotlin("jvm") version "1.9.23"
-    id("io.ktor.plugin") version "2.3.10"
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.23"
+    kotlin("jvm") version "1.9.24"
+    id("io.ktor.plugin") version "2.3.12"
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.24"
 }
 
 group = "be.vandeas"
@@ -38,7 +38,7 @@ dependencies {
     implementation("io.ktor:ktor-server-host-common-jvm")
     implementation("io.ktor:ktor-server-cio-jvm")
     implementation("ch.qos.logback:logback-classic:$logback_version")
-    implementation("io.ktor:ktor-server-config-yaml:2.3.10")
+    implementation("io.ktor:ktor-server-config-yaml:2.3.12")
 
     // Ktor features plugins
     implementation("io.ktor:ktor-server-partial-content:$ktor_version")

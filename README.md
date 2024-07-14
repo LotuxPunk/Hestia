@@ -120,11 +120,12 @@ Downloads a file from the server, usually used to embed the file in an `<img>`, 
 
 ###### Query Parameters
 
-| Name       | Type     | Description                                   |
-|------------|----------|-----------------------------------------------|
-| `fileName` | `string` | The name of the file that will be downloaded. |
-| `path`     | `string` | The path of the file that will be downloaded. |
-| `token`    | `string` | The one-time-token.                           |
+| Name       | Type     | Description                                                                                                                |
+|------------|----------|----------------------------------------------------------------------------------------------------------------------------|
+| `fileName` | `string` | The name of the file that will be downloaded.                                                                              |
+| `path`     | `string` | The path of the file that will be downloaded.                                                                              |
+| `token`    | `string` | The one-time-token.                                                                                                        |
+| `download` | `string` | Download filename (via [Content-Disposition](https://developer.mozilla.org/fr/docs/Web/HTTP/Headers/Content-Disposition) ) |
 
 ##### DELETE `/v1/file`
 
