@@ -66,18 +66,20 @@ fun Application.configureRouting() {
                         is FileReadResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
                         is FileReadResult.NotFound -> call.respond(HttpStatusCode.NotFound, FileNameWithPath(path = path, fileName = fileName))
                         is FileReadResult.Success -> {
-                            call.response.header(
-                                HttpHeaders.ContentDisposition,
-                                ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, fileName)
-                                    .toString()
-                            )
-                            call.respondFile(result.file) {
-                                headers {
-                                    if (downloadFileName.isNotBlank()) {
-                                        append(HttpHeaders.ContentDisposition, ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, downloadFileName).toString())
-                                    }
-                                }
+                            if (downloadFileName.isNotBlank()) {
+                                call.response.header(
+                                    HttpHeaders.ContentDisposition,
+                                    ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, downloadFileName)
+                                        .toString()
+                                )
+                            } else {
+                                call.response.header(
+                                    HttpHeaders.ContentDisposition,
+                                    ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, fileName)
+                                        .toString()
+                                )
                             }
+                            call.respondFile(result.file)
                         }
                     }
                 }
