@@ -1,19 +1,23 @@
 package be.vandeas.logic.impl
 
 import be.vandeas.domain.*
-import be.vandeas.dto.DirectoryDeleteOptions
-import be.vandeas.dto.FileCreationOptions
-import be.vandeas.dto.FileDeleteOptions
-import be.vandeas.dto.FileReadOptions
+import be.vandeas.dto.*
 import be.vandeas.handler.FileHandler
 import be.vandeas.logic.FileLogic
 import io.ktor.util.*
 import java.nio.file.Paths
 
 class FileLogicImpl : FileLogic {
-    override fun createFile(options: FileCreationOptions): FileCreationResult {
+    override fun createFile(options: Base64FileCreationOptions): FileCreationResult {
         return FileHandler.write(
             content = options.content.decodeBase64Bytes(),
+            filePath = Paths.get(options.path, options.fileName)
+        )
+    }
+
+    override fun createFile(options: BytesFileCreationOptions): FileCreationResult {
+        return FileHandler.write(
+            content = options.content,
             filePath = Paths.get(options.path, options.fileName)
         )
     }

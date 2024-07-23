@@ -3,9 +3,11 @@ package be.vandeas.plugins
 import be.vandeas.domain.*
 import be.vandeas.dto.*
 import be.vandeas.dto.ReadFileBytesResult.Companion.mapToReadFileBytesDto
+import be.vandeas.exception.AuthorizationException
 import be.vandeas.logic.AuthLogic
 import be.vandeas.service.FileService
 import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.autohead.*
 import io.ktor.server.plugins.partialcontent.*
@@ -27,7 +29,7 @@ fun Application.configureRouting() {
                 get {
                     val path = call.request.queryParameters["path"] ?: ""
                     val fileName = call.request.queryParameters["fileName"] ?: ""
-                    val authorization = call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
+                    val authorization = call.request.authorization() ?: throw AuthorizationException("Authorization header is required")
                     val accept = call.request.accept()?.let { ContentType.parse(it) } ?: ContentType.Application.Json
 
                     if (path.isBlank() || fileName.isBlank()) {
@@ -85,8 +87,8 @@ fun Application.configureRouting() {
                 }
 
                 post {
-                    val options: FileCreationOptions = call.receive()
-                    val authorization = call.request.authorization() ?: throw IllegalArgumentException("Authorization header is required")
+                    val options: Base64FileCreationOptions = call.receive()
+                    val authorization = call.request.authorization() ?: throw AuthorizationException("Authorization header is required")
 
                     when (val result = fileService.createFile(authorization, options)) {
                         is FileCreationResult.Duplicate -> call.respond(HttpStatusCode.Conflict, FileNameWithPath(path = options.path, fileName = options.fileName))
@@ -94,6 +96,49 @@ fun Application.configureRouting() {
                         is FileCreationResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
                         is FileCreationResult.Success -> call.respond(HttpStatusCode.Created, FileNameWithPath(path = options.path, fileName = options.fileName))
                     }
+                }
+
+                post("/upload") {
+                    val authorization = call.request.authorization() ?: throw AuthorizationException("Authorization header is required")
+                    val multipart = call.receiveMultipart()
+
+                    var fileName: String? = null
+                    var path: String? = null
+                    var data: ByteArray? = null
+
+                    multipart.forEachPart { part ->
+                        when (part) {
+                            is PartData.FormItem -> {
+                                when (part.name) {
+                                    "path" -> path = part.value
+                                    "fileName" -> fileName = part.value
+                                }
+                            }
+                            is PartData.FileItem -> {
+                                data = part.streamProvider().readBytes()
+                            }
+                            else -> throw IllegalArgumentException("Unsupported part type: ${part::class.simpleName}")
+                        }
+                        part.dispose()
+                    }
+
+                    requireNotNull(fileName) { "fileName is required" }
+                    requireNotNull(path) { "path is required" }
+                    requireNotNull(data) { "data is required" }
+
+                    val options = BytesFileCreationOptions(
+                        path = path!!,
+                        fileName = fileName!!,
+                        content = data!!
+                    )
+
+                    when (val result = fileService.createFile(authorization, options)) {
+                        is FileCreationResult.Duplicate -> call.respond(HttpStatusCode.Conflict, FileNameWithPath(path = options.path, fileName = options.fileName))
+                        is FileCreationResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
+                        is FileCreationResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
+                        is FileCreationResult.Success -> call.respond(HttpStatusCode.Created, FileNameWithPath(path = options.path, fileName = options.fileName))
+                    }
+
                 }
 
                 delete {

@@ -1,13 +1,11 @@
 package be.vandeas.logic
 
 import be.vandeas.domain.*
-import be.vandeas.dto.DirectoryDeleteOptions
-import be.vandeas.dto.FileCreationOptions
-import be.vandeas.dto.FileDeleteOptions
-import be.vandeas.dto.FileReadOptions
+import be.vandeas.dto.*
 
 interface FileLogic {
-    fun createFile(options: FileCreationOptions): FileCreationResult
+    fun createFile(options: Base64FileCreationOptions): FileCreationResult
+    fun createFile(options: BytesFileCreationOptions): FileCreationResult
     fun deleteFile(fileDeleteOptions: FileDeleteOptions): FileDeleteResult
     fun deleteDirectory(directoryDeleteOptions: DirectoryDeleteOptions): DirectoryDeleteResult
     fun readFile(fileReadOptions: FileReadOptions): FileBytesReadResult

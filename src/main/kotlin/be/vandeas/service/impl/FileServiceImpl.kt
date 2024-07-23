@@ -1,10 +1,7 @@
 package be.vandeas.service.impl
 
 import be.vandeas.domain.*
-import be.vandeas.dto.DirectoryDeleteOptions
-import be.vandeas.dto.FileCreationOptions
-import be.vandeas.dto.FileDeleteOptions
-import be.vandeas.dto.FileReadOptions
+import be.vandeas.dto.*
 import be.vandeas.logic.AuthLogic
 import be.vandeas.logic.FileLogic
 import be.vandeas.service.FileService
@@ -14,10 +11,16 @@ class FileServiceImpl(
     private val fileLogic: FileLogic,
     private val authLogic: AuthLogic
 ) : FileService {
-    override fun createFile(token: String, options: FileCreationOptions): FileCreationResult =
+    override fun createFile(token: String, options: Base64FileCreationOptions): FileCreationResult =
         authLogic.guard(token, Path.of(options.path, options.fileName)) {
             fileLogic.createFile(options)
         }
+
+    override fun createFile(token: String, options: BytesFileCreationOptions): FileCreationResult {
+        return authLogic.guard(token, Path.of(options.path, options.fileName)) {
+            fileLogic.createFile(options)
+        }
+    }
 
     override fun deleteFile(token: String, fileDeleteOptions: FileDeleteOptions): FileDeleteResult =
         authLogic.guard(token, Path.of(fileDeleteOptions.path, fileDeleteOptions.fileName)) {

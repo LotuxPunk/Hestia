@@ -1,11 +1,12 @@
 package be.vandeas
 
-import be.vandeas.dto.FileCreationOptions
+import be.vandeas.dto.Base64FileCreationOptions
 import be.vandeas.dto.ReadFileBytesResult
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
+import io.ktor.client.request.forms.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.util.*
@@ -52,7 +53,7 @@ class ApplicationTest {
                     accept(ContentType.Application.Json)
                     header("Authorization", getToken(dirName, fileName)!!)
                     setBody(
-                        FileCreationOptions(
+                        Base64FileCreationOptions(
                             path = dirName,
                             fileName = fileName,
                             content = testedFile.readBytes().encodeBase64()
@@ -88,7 +89,7 @@ class ApplicationTest {
                 contentType(ContentType.Application.Json)
                 header("Authorization", token!!)
                 setBody(
-                    FileCreationOptions(
+                    Base64FileCreationOptions(
                         path = dirName,
                         fileName = fileName,
                         content = testedFile.readBytes().encodeBase64()
@@ -118,7 +119,7 @@ class ApplicationTest {
                 contentType(ContentType.Application.Json)
                 header("Authorization", getToken(dirName, fileName)!!)
                 setBody(
-                    FileCreationOptions(
+                    Base64FileCreationOptions(
                         path = dirName,
                         fileName = fileName,
                         content = testedFile.readBytes().encodeBase64()
@@ -139,6 +140,44 @@ class ApplicationTest {
                 header("Authorization", getToken(dirName, fileName)!!)
             }.apply {
                 assertEquals(HttpStatusCode.NotFound, status)
+            }
+        }
+    }
+
+    @Test
+    fun `Should be able to upload in multipart-form data`() {
+        runBlocking {
+            val fileNames = mapOf(
+                "file.txt" to ContentType.Text.Plain,
+                "file.pdf" to ContentType.Application.Pdf,
+                "img.webp" to ContentType.Image.Any
+            )
+
+            val dirName = "multipart-${UUID.randomUUID()}"
+
+            fileNames.forEach { (fileName, contentType) ->
+                val testedFile = this::class.java.classLoader.getResource("input/$fileName")!!.toURI().toPath().toFile()
+
+                client.submitFormWithBinaryData("http://localhost:8082/v1/file/upload", formData {
+                    append(key = "path", value = dirName)
+                    append(key = "fileName", value = fileName)
+                    append(key = "content", value = testedFile.readBytes(), headers = Headers.build {
+                        append(HttpHeaders.ContentType, contentType.toString())
+                        append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
+                    })
+                }) {
+                    header("Authorization", getToken(dirName, fileName)!!)
+                }.apply {
+                    assertEquals(HttpStatusCode.Created, status)
+                    assertEquals(mapOf("path" to dirName, "fileName" to fileName) , body())
+                }
+
+                client.get("http://localhost:8082/v1/file?path=$dirName&fileName=$fileName") {
+                    header("Authorization", getToken(dirName, fileName)!!)
+                }.apply {
+                    assertEquals(HttpStatusCode.OK, status)
+                    assertEquals(testedFile.readBytes().toList(), body<ReadFileBytesResult>().content.decodeBase64Bytes().toList())
+                }
             }
         }
     }
