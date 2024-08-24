@@ -1,6 +1,6 @@
 ktor:
     application:
         modules:
-            - com.example.ApplicationKt.module
+            - be.vandeas.ApplicationKt.module
     deployment:
-        port: 8080
+        port: 8082
