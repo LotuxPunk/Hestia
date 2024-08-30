@@ -1,4 +1,4 @@
-package be.vandeas.service
+package be.vandeas.service.v1
 
 import be.vandeas.domain.*
 import be.vandeas.dto.*

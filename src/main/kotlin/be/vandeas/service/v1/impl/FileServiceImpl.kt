@@ -1,10 +1,10 @@
-package be.vandeas.service.impl
+package be.vandeas.service.v1.impl
 
 import be.vandeas.domain.*
 import be.vandeas.dto.*
 import be.vandeas.logic.AuthLogic
 import be.vandeas.logic.FileLogic
-import be.vandeas.service.FileService
+import be.vandeas.service.v1.FileService
 import java.nio.file.Path
 
 class FileServiceImpl(

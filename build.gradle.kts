@@ -38,12 +38,14 @@ dependencies {
     implementation("io.ktor:ktor-server-host-common-jvm")
     implementation("io.ktor:ktor-server-cio-jvm")
     implementation("ch.qos.logback:logback-classic:$logback_version")
-    implementation("io.ktor:ktor-server-config-yaml:2.3.12")
+    implementation("io.ktor:ktor-server-config-yaml")
 
     // Ktor features plugins
     implementation("io.ktor:ktor-server-partial-content:$ktor_version")
     implementation("io.ktor:ktor-server-auto-head-response:$ktor_version")
     implementation("io.ktor:ktor-server-status-pages:$ktor_version")
+    implementation("io.ktor:ktor-server-auth:$ktor_version")
+    implementation("io.ktor:ktor-server-auth-jwt:$ktor_version")
 
     // Cache4k
     implementation("io.github.reactivecircus.cache4k:cache4k:0.13.0")
