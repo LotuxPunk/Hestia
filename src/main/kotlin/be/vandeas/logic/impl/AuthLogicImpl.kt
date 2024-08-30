@@ -47,7 +47,7 @@ class AuthLogicImpl(
     }
 
     override fun getJwtToken(apiKey: String, duration: Duration): String {
-        if (validateApiKey(apiKey)) {
+        if (!validateApiKey(apiKey)) {
             throw AuthorizationException("Invalid API key")
         }
 

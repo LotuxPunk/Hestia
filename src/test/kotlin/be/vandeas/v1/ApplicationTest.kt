@@ -1,4 +1,4 @@
-package be.vandeas
+package be.vandeas.v1
 
 import be.vandeas.dto.Base64FileCreationOptions
 import be.vandeas.dto.ReadFileBytesResult
