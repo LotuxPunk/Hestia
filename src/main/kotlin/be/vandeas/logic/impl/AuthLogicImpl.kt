@@ -42,9 +42,10 @@ class AuthLogicImpl(
     override fun <T> guard(token: String, path: Path, protectedMethod: () -> T): T =
         validateOneTimeToken(token, path).let { protectedMethod() }
 
-    override fun <T> guard(jwt: String, protectedMethod: () -> T): T {
-        TODO("Not yet implemented")
-    }
+    override fun <T> guard(jwt: String, protectedMethod: () -> T): T =
+        validateJwtToken(jwt).let {
+            protectedMethod()
+        }
 
     override fun getJwtToken(apiKey: String, duration: Duration): String {
         if (!validateApiKey(apiKey)) {

@@ -14,6 +14,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.util.*
 import kotlin.io.path.toPath
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration
@@ -36,6 +37,11 @@ class ApplicationTest {
         }.apply {
             assertEquals(HttpStatusCode.OK, status)
         }.body<Map<String, String>>()["token"]
+    }
+
+    @BeforeTest
+    fun setup() {
+        // DELETE ALL FILES FROM SCRATCH
     }
 
     @Test
