@@ -17,5 +17,7 @@ fun Application.configureHTTP() {
         allowHeader(HttpHeaders.Accept)
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         anyHost()
+
+        allowSameOrigin = true
     }
 }
