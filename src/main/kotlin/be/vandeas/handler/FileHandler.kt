@@ -8,9 +8,11 @@ import java.nio.file.*
 import kotlin.io.FileAlreadyExistsException
 import kotlin.io.path.*
 
-object FileHandler {
+class FileHandler(
+    directory: String
+) {
     private val LOGGER = KtorSimpleLogger("be.vandeas.handlers.FileHandler")
-    private val BASE_DIRECTORY: Path = Path.of(URI.create("file://${System.getenv("BASE_DIRECTORY")}"))
+    private val BASE_DIRECTORY: Path = Path.of(URI.create("file://$directory"))
 
     /**
      * Writes a file.

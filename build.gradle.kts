@@ -46,6 +46,7 @@ dependencies {
     implementation("io.ktor:ktor-server-status-pages:$ktor_version")
     implementation("io.ktor:ktor-server-auth:$ktor_version")
     implementation("io.ktor:ktor-server-auth-jwt:$ktor_version")
+    implementation("io.ktor:ktor-server-caching-headers:$ktor_version")
 
     // Cache4k
     implementation("io.github.reactivecircus.cache4k:cache4k:0.13.0")

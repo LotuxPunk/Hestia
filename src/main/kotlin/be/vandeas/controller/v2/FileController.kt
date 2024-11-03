@@ -9,10 +9,15 @@ import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
+import io.ktor.server.http.content.*
+import io.ktor.server.plugins.cachingheaders.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.koin.ktor.ext.inject
+import java.nio.file.Paths
+import kotlin.io.path.pathString
+import kotlin.time.Duration.Companion.days
 
 fun Route.fileControllerV2() = route("/file") {
 
@@ -64,10 +69,17 @@ fun Route.fileControllerV2() = route("/file") {
 
                 is FileCreationResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
                 is FileCreationResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
-                is FileCreationResult.Success -> call.respond(
-                    HttpStatusCode.Created,
-                    FileNameWithPath(path = options.path, fileName = options.fileName)
-                )
+                is FileCreationResult.Success -> {
+                    val resultPath = result.path.parent.pathString.replace(
+                        "${if (options.public) System.getenv("PUBLIC_DIRECTORY") else System.getenv("BASE_DIRECTORY")}/",
+                        if (options.public) "public" else ""
+                    )
+
+                    call.respond(
+                        HttpStatusCode.Created,
+                        FileNameWithPath(path = resultPath, fileName = options.fileName)
+                    )
+                }
             }
         }
 
@@ -77,6 +89,7 @@ fun Route.fileControllerV2() = route("/file") {
             var fileName: String? = null
             var path: String? = null
             var data: ByteArray? = null
+            var public = false
 
             multipart.forEachPart { part ->
                 when (part) {
@@ -84,6 +97,7 @@ fun Route.fileControllerV2() = route("/file") {
                         when (part.name) {
                             "path" -> path = part.value
                             "fileName" -> fileName = part.value
+                            "public" -> public = part.value.toBoolean()
                         }
                     }
 
@@ -103,7 +117,8 @@ fun Route.fileControllerV2() = route("/file") {
             val options = BytesFileCreationOptions(
                 path = path!!,
                 fileName = fileName!!,
-                content = data!!
+                content = data!!,
+                public = public
             )
 
             when (val result = fileLogic.createFile(options)) {
@@ -114,10 +129,17 @@ fun Route.fileControllerV2() = route("/file") {
 
                 is FileCreationResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
                 is FileCreationResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
-                is FileCreationResult.Success -> call.respond(
-                    HttpStatusCode.Created,
-                    FileNameWithPath(path = options.path, fileName = options.fileName)
-                )
+                is FileCreationResult.Success -> {
+                    val resultPath = result.path.parent.pathString.replace(
+                        "${if (options.public) System.getenv("PUBLIC_DIRECTORY") else System.getenv("BASE_DIRECTORY")}/",
+                        if (options.public) "public/" else ""
+                    )
+
+                    call.respond(
+                        HttpStatusCode.Created,
+                        FileNameWithPath(path = resultPath, fileName = options.fileName)
+                    )
+                }
             }
 
         }
@@ -127,11 +149,13 @@ fun Route.fileControllerV2() = route("/file") {
                 ?: throw IllegalArgumentException("path query parameter is required")
             val fileName = call.request.queryParameters["fileName"]
             val recursive = call.request.queryParameters["recursive"]?.toBoolean() ?: false
+            val public = call.request.queryParameters["public"]?.toBoolean() ?: false
 
             if (fileName == null) {
                 val options = DirectoryDeleteOptions(
                     path = path,
-                    recursive = recursive
+                    recursive = recursive,
+                    public = public
                 )
 
                 when (val result = fileLogic.deleteDirectory(options)) {
@@ -155,9 +179,9 @@ fun Route.fileControllerV2() = route("/file") {
                 }
             } else {
                 val options = FileDeleteOptions(
-                    path = call.request.queryParameters["path"]
-                        ?: throw IllegalArgumentException("path query parameter is required"),
-                    fileName = call.request.queryParameters["fileName"] ?: ""
+                    path = path,
+                    fileName = fileName,
+                    public = public,
                 )
 
                 when (val result = fileLogic.deleteFile(options)) {
@@ -177,7 +201,18 @@ fun Route.fileControllerV2() = route("/file") {
             }
         }
     }
+    staticFiles("/public", Paths.get(System.getenv("PUBLIC_DIRECTORY")).toFile()) {
+        cacheControl { file ->
+            when(file.extension.lowercase()) {
+                "jpg", "jpeg", "png", "gif" -> listOf(CacheControl.MaxAge(maxAgeSeconds = 30.days.inWholeSeconds.toInt()))
+                "pdf" -> listOf(CacheControl.MaxAge(maxAgeSeconds = 30.days.inWholeSeconds.toInt()))
+                else -> emptyList()
+            }
+        }
+    }
     get("/embed") {
+        call.caching = CachingOptions(CacheControl.MaxAge(maxAgeSeconds = 30.days.inWholeSeconds.toInt(), visibility = CacheControl.Visibility.Private))
+
         val path = call.request.queryParameters["path"] ?: ""
         val fileName = call.request.queryParameters["fileName"] ?: ""
         val downloadFileName = call.request.queryParameters["download"] ?: ""

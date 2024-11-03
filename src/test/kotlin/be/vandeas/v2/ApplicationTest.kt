@@ -2,18 +2,17 @@ package be.vandeas.v2
 
 import be.vandeas.dto.Base64FileCreationOptions
 import be.vandeas.dto.ReadFileBytesResult
-import be.vandeas.plugins.configureKoin
-import be.vandeas.plugins.configureRouting
-import be.vandeas.plugins.configureSerialization
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.testing.*
 import io.ktor.util.*
+import io.ktor.utils.io.jvm.javaio.*
 import kotlinx.coroutines.delay
 import java.util.*
 import kotlin.io.path.toPath
@@ -207,6 +206,121 @@ class ApplicationTest {
                     testedFile.readBytes().toList(),
                     body<ReadFileBytesResult>().content.decodeBase64Bytes().toList()
                 )
+            }
+        }
+    }
+
+    @Test
+    fun `Should be able to upload public file in multipart-form data`() = testApplication {
+        val httpClient = client.config {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+
+        val fileNames = mapOf(
+            "file.txt" to ContentType.Text.Plain,
+            "file.pdf" to ContentType.Application.Pdf,
+            "img.webp" to ContentType.Image.Any
+        )
+
+        val jwt = httpClient.getToken(60.seconds)!!
+        val dirName = "multipart-${UUID.randomUUID()}"
+
+        fileNames.forEach { (fileName, contentType) ->
+            val testedFile = this::class.java.classLoader.getResource("input/$fileName")!!.toURI().toPath().toFile()
+
+            httpClient.submitFormWithBinaryData("/v2/file/upload", formData {
+                append(key = "path", value = dirName)
+                append(key = "public", value = true)
+                append(key = "fileName", value = fileName)
+                append(key = "content", value = testedFile.readBytes(), headers = Headers.build {
+                    append(HttpHeaders.ContentType, contentType.toString())
+                    append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
+                })
+            }) {
+                bearerAuth(jwt)
+            }.apply {
+                assertEquals(HttpStatusCode.Created, status)
+                val response = body<Map<String, String>>()
+
+                assertEquals(mapOf("path" to listOf("public", dirName).joinToString("/"), "fileName" to fileName), response)
+
+                httpClient.get("/v2/file/${response["path"]}/${response["fileName"]}") {
+                    accept(ContentType.Application.OctetStream)
+                    accept(ContentType.Text.Plain)
+                    accept(ContentType.Application.Pdf)
+                    accept(ContentType.Image.Any)
+                }.apply {
+                    assertEquals(HttpStatusCode.OK, status)
+                    assertEquals(
+                        testedFile.readBytes().toList(),
+                        bodyAsChannel().toInputStream().readBytes().toList()
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `Should be able to upload public file in multipart-form data and delete it`() = testApplication {
+        val httpClient = client.config {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+
+        val fileNames = mapOf("file.txt" to ContentType.Text.Plain,)
+
+        val jwt = httpClient.getToken(60.seconds)!!
+        val dirName = "multipart-${UUID.randomUUID()}"
+
+        fileNames.forEach { (fileName, contentType) ->
+            val testedFile = this::class.java.classLoader.getResource("input/$fileName")!!.toURI().toPath().toFile()
+
+            httpClient.submitFormWithBinaryData("/v2/file/upload", formData {
+                append(key = "path", value = dirName)
+                append(key = "public", value = true)
+                append(key = "fileName", value = fileName)
+                append(key = "content", value = testedFile.readBytes(), headers = Headers.build {
+                    append(HttpHeaders.ContentType, contentType.toString())
+                    append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
+                })
+            }) {
+                bearerAuth(jwt)
+            }.apply {
+                assertEquals(HttpStatusCode.Created, status)
+                val response = body<Map<String, String>>()
+
+                assertEquals(mapOf("path" to listOf("public", dirName).joinToString("/"), "fileName" to fileName), response)
+
+                httpClient.get("/v2/file/${response["path"]}/${response["fileName"]}") {
+                    accept(ContentType.Application.OctetStream)
+                    accept(ContentType.Text.Plain)
+                    accept(ContentType.Application.Pdf)
+                    accept(ContentType.Image.Any)
+                }.apply {
+                    assertEquals(HttpStatusCode.OK, status)
+                    assertEquals(
+                        testedFile.readBytes().toList(),
+                        bodyAsChannel().toInputStream().readBytes().toList()
+                    )
+                }
+
+                httpClient.delete("/v2/file?path=${dirName}&fileName=${response["fileName"]}&public=true") {
+                    bearerAuth(jwt)
+                }.apply {
+                    assertEquals(HttpStatusCode.NoContent, status)
+                }
+
+                httpClient.get("/v2/file/${response["path"]}/${response["fileName"]}") {
+                    accept(ContentType.Application.OctetStream)
+                    accept(ContentType.Text.Plain)
+                    accept(ContentType.Application.Pdf)
+                    accept(ContentType.Image.Any)
+                }.apply {
+                    assertEquals(HttpStatusCode.NotFound, status)
+                }
             }
         }
     }

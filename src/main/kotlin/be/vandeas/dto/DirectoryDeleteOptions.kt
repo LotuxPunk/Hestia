@@ -6,4 +6,5 @@ import kotlinx.serialization.Serializable
 data class DirectoryDeleteOptions(
     val path: String,
     val recursive: Boolean = false,
-)
+    override val public: Boolean,
+): FileVisibilityOptions
