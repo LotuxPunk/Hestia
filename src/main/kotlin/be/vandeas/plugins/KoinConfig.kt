@@ -1,5 +1,6 @@
 package be.vandeas.plugins
 
+import be.vandeas.handler.FileHandler
 import be.vandeas.logic.AuthLogic
 import be.vandeas.logic.FileLogic
 import be.vandeas.logic.impl.AuthLogicImpl
@@ -18,7 +19,10 @@ import org.koin.logger.slf4jLogger
 
 fun appModule(environment: ApplicationEnvironment) = module {
     single<FileLogic> {
-        FileLogicImpl()
+        FileLogicImpl(
+            privateFileHandler = FileHandler(System.getenv("BASE_DIRECTORY")),
+            publicFileHandler = FileHandler(System.getenv("PUBLIC_DIRECTORY")),
+        )
     }
 
     single<AuthLogic> {

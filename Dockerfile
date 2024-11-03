@@ -9,5 +9,10 @@ RUN mkdir /app
 COPY --from=build /home/gradle/src/build/libs/*.jar /app/hestia.jar
 ENV API_KEY=
 ENV BASE_DIRECTORY=
+ENV PUBLIC_DIRECTORY=
+ENV JWT_AUDIENCE=
+ENV JWT_ISSUER=
+ENV JWT_REALM=
+ENV JWT_SECRET=
 ENTRYPOINT ["java","-jar","/app/hestia.jar"]
 LABEL org.opencontainers.image.source=https://github.com/LotuxPunk/Hestia

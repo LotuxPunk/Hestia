@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class FileDeleteOptions(
-    val path: String,
-    val fileName: String,
-)
+    override val path: String,
+    override val fileName: String,
+    override val public: Boolean,
+): FileOperationOptions

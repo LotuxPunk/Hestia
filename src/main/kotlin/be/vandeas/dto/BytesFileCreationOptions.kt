@@ -4,7 +4,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class BytesFileCreationOptions(
-    val path: String,
-    val fileName: String,
+    override val path: String,
+    override val fileName: String,
+    override val public: Boolean = false,
     val content: ByteArray,
-)
+): FileOperationOptions

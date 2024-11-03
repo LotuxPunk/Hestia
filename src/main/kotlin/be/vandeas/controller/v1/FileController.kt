@@ -141,7 +141,8 @@ fun Route.fileControllerV1() = route("/file") {
         if (fileName == null) {
             val options = DirectoryDeleteOptions(
                 path = path,
-                recursive = recursive
+                recursive = recursive,
+                public = false
             )
 
             when (val result = fileService.deleteDirectory(authorization, options)) {
@@ -153,8 +154,9 @@ fun Route.fileControllerV1() = route("/file") {
             }
         } else {
             val options = FileDeleteOptions(
-                path = call.request.queryParameters["path"] ?: throw IllegalArgumentException("path query parameter is required"),
-                fileName = call.request.queryParameters["fileName"] ?: ""
+                path = path,
+                fileName = fileName,
+                public = false
             )
 
             when (val result = fileService.deleteFile(authorization, options)) {
