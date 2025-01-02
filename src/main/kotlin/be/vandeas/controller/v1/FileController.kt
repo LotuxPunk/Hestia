@@ -7,7 +7,6 @@ import be.vandeas.exception.AuthorizationException
 import be.vandeas.service.v1.FileService
 import io.ktor.http.*
 import io.ktor.http.content.*
-import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -40,6 +39,8 @@ fun Route.fileControllerV1() = route("/file") {
                 ContentType.Application.OctetStream -> call.respondBytes(result.data)
                 else -> call.respond(HttpStatusCode.NotAcceptable, "Accept header must be application/json or application/octet-stream")
             }
+
+            is FileBytesReadResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
         }
     }
 
@@ -73,6 +74,8 @@ fun Route.fileControllerV1() = route("/file") {
                 }
                 call.respondFile(result.file)
             }
+
+            is FileReadResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
         }
     }
 
@@ -85,6 +88,7 @@ fun Route.fileControllerV1() = route("/file") {
             is FileCreationResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
             is FileCreationResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
             is FileCreationResult.Success -> call.respond(HttpStatusCode.Created, FileNameWithPath(path = options.path, fileName = options.fileName))
+            is FileCreationResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
         }
     }
 
@@ -127,6 +131,7 @@ fun Route.fileControllerV1() = route("/file") {
             is FileCreationResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
             is FileCreationResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
             is FileCreationResult.Success -> call.respond(HttpStatusCode.Created, FileNameWithPath(path = options.path, fileName = options.fileName))
+            is FileCreationResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
         }
 
     }
@@ -151,6 +156,7 @@ fun Route.fileControllerV1() = route("/file") {
                 is DirectoryDeleteResult.IsAFile -> call.respond(HttpStatusCode.BadRequest, mapOf("path" to options.path, "hasChildren" to false))
                 is DirectoryDeleteResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
                 is DirectoryDeleteResult.Success -> call.respond(HttpStatusCode.NoContent)
+                is DirectoryDeleteResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
             }
         } else {
             val options = FileDeleteOptions(
@@ -164,6 +170,7 @@ fun Route.fileControllerV1() = route("/file") {
                 is FileDeleteResult.IsADirectory -> call.respond(HttpStatusCode.BadRequest, FileNameWithPath(path = options.path, fileName = options.fileName))
                 is FileDeleteResult.NotFound -> call.respond(HttpStatusCode.NotFound, FileNameWithPath(path = options.path, fileName = options.fileName))
                 is FileDeleteResult.Success -> call.respond(HttpStatusCode.NoContent)
+                is FileDeleteResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
             }
         }
     }

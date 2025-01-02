@@ -2,10 +2,9 @@ package be.vandeas.handler
 
 import be.vandeas.domain.*
 import io.ktor.util.logging.*
-import io.ktor.utils.io.errors.*
+import kotlinx.io.IOException
 import java.net.URI
 import java.nio.file.*
-import kotlin.io.FileAlreadyExistsException
 import kotlin.io.path.*
 
 class FileHandler(
@@ -23,8 +22,8 @@ class FileHandler(
      * @return A [FileCreationResult] indicating the result of the operation.
      */
     fun write(content: ByteArray, filePath: Path): FileCreationResult {
-        val path = BASE_DIRECTORY.resolve(filePath)
         try {
+            val path = resolvePath(filePath)
             if (!path.parent.exists()) {
                 if (!path.parent.toFile().mkdirs()) {
                     LOGGER.error("Failed to create directory: {}", path.parent)
@@ -35,10 +34,13 @@ class FileHandler(
             return FileCreationResult.Success(Files.write(path, content, StandardOpenOption.CREATE_NEW))
         } catch (e: InvalidPathException) {
             LOGGER.error(e)
-            return FileCreationResult.NotFound(path)
+            return FileCreationResult.NotFound(filePath)
+        } catch (e: IllegalArgumentException) {
+            LOGGER.error(e)
+            return FileCreationResult.BadRequest("Invalid path: $filePath")
         } catch (e: FileAlreadyExistsException) {
             LOGGER.error(e)
-            return FileCreationResult.Duplicate(path)
+            return FileCreationResult.Duplicate(filePath)
         } catch (e: Exception) {
             LOGGER.error(e)
             return FileCreationResult.Failure(e.message ?: "An error occurred while writing the file.")
@@ -53,13 +55,15 @@ class FileHandler(
      * @return A [FileBytesReadResult] indicating the result of the operation.
      */
     fun get(path: Path): FileReadResult {
-        val filePath = BASE_DIRECTORY.resolve(path)
-
         try {
+            val filePath = resolvePath(path)
             return FileReadResult.Success(filePath.toFile())
         } catch (e: UnsupportedOperationException) {
             LOGGER.error(e)
-            return FileReadResult.NotFound(filePath)
+            return FileReadResult.NotFound(path)
+        } catch (e: IllegalArgumentException) {
+            LOGGER.error(e)
+            return FileReadResult.BadRequest("Invalid path: $path")
         } catch (e: Exception) {
             LOGGER.error(e)
             return FileReadResult.Failure(e.message ?: "An error occurred while reading the file.")
@@ -74,16 +78,18 @@ class FileHandler(
      * @return A [FileBytesReadResult] indicating the result of the operation.
      */
     fun read(path: Path): FileBytesReadResult {
-        val filePath = BASE_DIRECTORY.resolve(path)
-
         try {
+            val filePath = resolvePath(path)
             return FileBytesReadResult.Success(Files.readAllBytes(filePath).toList().toByteArray(), filePath)
         } catch (e: NoSuchFileException) {
             LOGGER.error(e)
-            return FileBytesReadResult.NotFound(filePath)
+            return FileBytesReadResult.NotFound(path)
+        } catch (e: IllegalArgumentException) {
+            LOGGER.error(e)
+            return FileBytesReadResult.BadRequest("Invalid path: $path")
         } catch (e: InvalidPathException) {
             LOGGER.error(e)
-            return FileBytesReadResult.NotFound(filePath)
+            return FileBytesReadResult.NotFound(path)
         } catch (e: Exception) {
             LOGGER.error(e)
             return FileBytesReadResult.Failure(e.message ?: "An error occurred while reading the file.")
@@ -98,8 +104,8 @@ class FileHandler(
      * @return A [FileDeleteResult] indicating the result of the operation.
      */
     fun deleteFile(path: Path): FileDeleteResult {
-        val filePath = BASE_DIRECTORY.resolve(path)
         try {
+            val filePath = resolvePath(path)
             if (filePath.exists()) {
                 if (filePath.isDirectory()) {
                     return FileDeleteResult.IsADirectory(filePath)
@@ -113,10 +119,13 @@ class FileHandler(
             return FileDeleteResult.NotFound(filePath)
         } catch (e: InvalidPathException) {
             LOGGER.error(e)
-            return FileDeleteResult.Success(filePath)
+            return FileDeleteResult.Success(path)
+        } catch (e: IllegalArgumentException) {
+            LOGGER.error(e)
+            return FileDeleteResult.BadRequest("Invalid path: $path")
         } catch (e: NoSuchFileException) {
             LOGGER.error(e)
-            return FileDeleteResult.NotFound(filePath)
+            return FileDeleteResult.NotFound(path)
         } catch (e: Exception) {
             LOGGER.error(e)
             return FileDeleteResult.Failure(e.message ?: "An error occurred while deleting the file.")
@@ -133,8 +142,8 @@ class FileHandler(
      */
     @OptIn(ExperimentalPathApi::class)
     fun deleteDirectory(path: Path, recursive: Boolean): DirectoryDeleteResult {
-        val filePath = BASE_DIRECTORY.resolve(path)
         try {
+            val filePath = resolvePath(path)
             if (filePath.exists()) {
                 if (filePath.isDirectory()) {
                     if (recursive) {
@@ -156,12 +165,24 @@ class FileHandler(
         } catch (e: IOException) {
             LOGGER.error(e)
             return DirectoryDeleteResult.Failure(e.message ?: "An error occurred while reading the file.")
+        } catch (e: IllegalArgumentException) {
+            LOGGER.error(e)
+            return DirectoryDeleteResult.BadRequest("Invalid path: $path")
         } catch (e: NoSuchFileException) {
             LOGGER.error(e)
-            return DirectoryDeleteResult.NotFound(filePath)
+            return DirectoryDeleteResult.NotFound(path)
         } catch (e: InvalidPathException) {
             LOGGER.error(e)
-            return DirectoryDeleteResult.Success(filePath)
+            return DirectoryDeleteResult.Success(path)
         }
+    }
+
+    private fun resolvePath(path: Path): Path {
+        val resolvedPath = BASE_DIRECTORY.resolve(path).normalize()
+        if (!resolvedPath.startsWith(BASE_DIRECTORY.normalize())) {
+            LOGGER.error("Resolved path is outside of the base directory: {}", resolvedPath)
+            throw IllegalArgumentException("Resolved path is outside of the base directory: $resolvedPath")
+        }
+        return resolvedPath
     }
 }

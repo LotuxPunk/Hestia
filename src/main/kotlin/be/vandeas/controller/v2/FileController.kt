@@ -55,6 +55,8 @@ fun Route.fileControllerV2() = route("/file") {
                         "Accept header must be application/json or application/octet-stream"
                     )
                 }
+
+                is FileBytesReadResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
             }
         }
 
@@ -80,6 +82,8 @@ fun Route.fileControllerV2() = route("/file") {
                         FileNameWithPath(path = resultPath, fileName = options.fileName)
                     )
                 }
+
+                is FileCreationResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
             }
         }
 
@@ -140,6 +144,8 @@ fun Route.fileControllerV2() = route("/file") {
                         FileNameWithPath(path = resultPath, fileName = options.fileName)
                     )
                 }
+
+                is FileCreationResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
             }
 
         }
@@ -176,6 +182,7 @@ fun Route.fileControllerV2() = route("/file") {
                     )
 
                     is DirectoryDeleteResult.Success -> call.respond(HttpStatusCode.NoContent)
+                    is DirectoryDeleteResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
                 }
             } else {
                 val options = FileDeleteOptions(
@@ -197,6 +204,7 @@ fun Route.fileControllerV2() = route("/file") {
                     )
 
                     is FileDeleteResult.Success -> call.respond(HttpStatusCode.NoContent)
+                    is FileDeleteResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
                 }
             }
         }
@@ -255,6 +263,8 @@ fun Route.fileControllerV2() = route("/file") {
                 }
                 call.respondFile(result.file)
             }
+
+            is FileReadResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
         }
     }
 }
