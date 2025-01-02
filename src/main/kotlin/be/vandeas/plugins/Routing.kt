@@ -1,11 +1,10 @@
 package be.vandeas.plugins
 
-import be.vandeas.logic.AuthLogic
 import be.vandeas.controller.v1.fileControllerV1
 import be.vandeas.controller.v2.fileControllerV2
+import be.vandeas.logic.AuthLogic
 import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.auth.*
 import io.ktor.server.plugins.autohead.*
 import io.ktor.server.plugins.partialcontent.*
 import io.ktor.server.request.*

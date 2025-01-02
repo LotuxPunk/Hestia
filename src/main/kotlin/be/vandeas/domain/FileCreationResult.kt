@@ -7,4 +7,5 @@ sealed interface FileCreationResult {
     data class NotFound(val path: Path) : FileCreationResult
     data class Duplicate(val path: Path) : FileCreationResult
     data class Failure(val message: String) : FileCreationResult
+    data class BadRequest(val message: String) : FileCreationResult
 }

@@ -2,6 +2,14 @@ package be.vandeas.v1
 
 import be.vandeas.dto.Base64FileCreationOptions
 import be.vandeas.dto.ReadFileBytesResult
+import be.vandeas.module
+import be.vandeas.plugins.configureHTTP
+import be.vandeas.plugins.configureKoin
+import be.vandeas.plugins.configureMonitoring
+import be.vandeas.plugins.configureRouting
+import be.vandeas.plugins.configureSecurity
+import be.vandeas.plugins.configureSerialization
+import be.vandeas.plugins.configureStatus
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
@@ -18,6 +26,7 @@ import kotlin.io.path.toPath
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
 
 class ApplicationTest {
@@ -35,6 +44,13 @@ class ApplicationTest {
 
     @Test
     fun `Should be able to write and read`() = testApplication {
+        application {
+            configureSerialization()
+            configureKoin()
+            configureSecurity()
+            configureRouting()
+        }
+
         val httpClient = client.config {
             install(ContentNegotiation) {
                 json()
@@ -80,6 +96,14 @@ class ApplicationTest {
 
     @Test
     fun `Should not be able to re-use the same token twice`() = testApplication {
+        application {
+            configureSerialization()
+            configureKoin()
+            configureSecurity()
+            configureRouting()
+            configureStatus()
+        }
+
         val httpClient = client.config {
             install(ContentNegotiation) {
                 json()
@@ -116,6 +140,13 @@ class ApplicationTest {
 
     @Test
     fun `Should be able to delete a file`() = testApplication {
+        application {
+            configureSerialization()
+            configureKoin()
+            configureSecurity()
+            configureRouting()
+        }
+
         val httpClient = client.config {
             install(ContentNegotiation) {
                 json()
@@ -156,6 +187,13 @@ class ApplicationTest {
 
     @Test
     fun `Should be able to upload in multipart-form data`() = testApplication {
+        application {
+            configureSerialization()
+            configureKoin()
+            configureSecurity()
+            configureRouting()
+        }
+
         val httpClient = client.config {
             install(ContentNegotiation) {
                 json()
@@ -196,4 +234,83 @@ class ApplicationTest {
         }
     }
 
+    @Test
+    fun `Should not be able to create a file outside of the base directory`() = testApplication {
+        application {
+            configureSerialization()
+            configureKoin()
+            configureSecurity()
+            configureRouting()
+        }
+
+        val httpClient = client.config {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+
+        val dirName = "../outside-${UUID.randomUUID()}"
+        val fileName = "file.txt"
+        val testedFile = this::class.java.classLoader.getResource("input/$fileName")!!.toURI().toPath().toFile()
+
+        httpClient.post("/v1/file") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", httpClient.getToken(dirName, fileName)!!)
+            setBody(
+                Base64FileCreationOptions(
+                    path = dirName,
+                    fileName = fileName,
+                    content = testedFile.readBytes().encodeBase64()
+                )
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.BadRequest, status)
+        }
+    }
+
+    @Test
+    fun `Should not be able to make any request outside of the base directory`() = testApplication {
+        application {
+            configureSerialization()
+            configureKoin()
+            configureSecurity()
+            configureRouting()
+        }
+
+        val httpClient = client.config {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+
+        val dirName = "../outside-${UUID.randomUUID()}"
+        val fileName = "file.txt"
+        val testedFile = this::class.java.classLoader.getResource("input/$fileName")!!.toURI().toPath().toFile()
+
+        httpClient.post("/v1/file") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", httpClient.getToken(dirName, fileName)!!)
+            setBody(
+                Base64FileCreationOptions(
+                    path = dirName,
+                    fileName = fileName,
+                    content = testedFile.readBytes().encodeBase64()
+                )
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.BadRequest, status)
+        }
+
+        httpClient.get("/v1/file?path=$dirName&fileName=$fileName") {
+            header("Authorization", httpClient.getToken(dirName, fileName)!!)
+        }.apply {
+            assertEquals(HttpStatusCode.BadRequest, status)
+        }
+
+        httpClient.delete("/v1/file?path=$dirName&fileName=$fileName") {
+            header("Authorization", httpClient.getToken(dirName, fileName)!!)
+        }.apply {
+            assertEquals(HttpStatusCode.BadRequest, status)
+        }
+    }
 }

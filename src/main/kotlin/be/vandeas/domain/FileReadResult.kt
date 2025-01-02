@@ -7,4 +7,5 @@ sealed interface FileReadResult {
     data class Success(val file: File) : FileReadResult
     data class NotFound(val path: Path) : FileReadResult
     data class Failure(val message: String) : FileReadResult
+    data class BadRequest(val message: String) : FileReadResult
 }

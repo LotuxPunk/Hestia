@@ -8,4 +8,5 @@ sealed interface DirectoryDeleteResult {
     data class DirectoryHasChildren(val path: Path) : DirectoryDeleteResult
     data class NotFound(val path: Path) : DirectoryDeleteResult
     data class Failure(val message: String) : DirectoryDeleteResult
+    data class BadRequest(val message: String) : DirectoryDeleteResult
 }
