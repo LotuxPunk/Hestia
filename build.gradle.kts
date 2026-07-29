@@ -38,7 +38,6 @@ dependencies {
     implementation("io.ktor:ktor-server-host-common")
     implementation("io.ktor:ktor-server-netty")
     implementation("ch.qos.logback:logback-classic:$logback_version")
-    implementation("io.ktor:ktor-server-config-yaml")
 
     // Ktor features plugins
     implementation("io.ktor:ktor-server-partial-content:$ktor_version")
