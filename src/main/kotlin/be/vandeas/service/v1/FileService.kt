@@ -5,7 +5,7 @@ import be.vandeas.dto.*
 
 interface FileService {
     fun createFile(token: String, options: Base64FileCreationOptions): FileCreationResult
-    fun createFile(token: String, options: BytesFileCreationOptions): FileCreationResult
+    fun createFile(token: String, options: StagedFileCreationOptions): FileCreationResult
     fun deleteFile(token: String, fileDeleteOptions: FileDeleteOptions): FileDeleteResult
     fun deleteDirectory(token: String, directoryDeleteOptions: DirectoryDeleteOptions): DirectoryDeleteResult
     fun readFile(token: String, fileReadOptions: FileReadOptions): FileBytesReadResult

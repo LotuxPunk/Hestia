@@ -21,9 +21,9 @@ class FileLogicImpl(
         )
     }
 
-    override fun createFile(options: BytesFileCreationOptions): FileCreationResult {
+    override fun createFile(options: StagedFileCreationOptions): FileCreationResult {
         return options.fileHandler().write(
-            content = options.content,
+            stagedFile = options.stagedFile,
             filePath = Paths.get(options.path, options.fileName)
         )
     }

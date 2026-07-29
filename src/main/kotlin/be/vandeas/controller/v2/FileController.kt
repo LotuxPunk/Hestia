@@ -1,5 +1,7 @@
 package be.vandeas.controller.v2
 
+import be.vandeas.config.maxUploadSizeBytes
+import be.vandeas.controller.stageUpload
 import be.vandeas.domain.*
 import be.vandeas.dto.*
 import be.vandeas.dto.ReadFileBytesResult.Companion.mapToReadFileBytesDto
@@ -7,7 +9,6 @@ import be.vandeas.logic.FileLogic
 import be.vandeas.service.v2.FileService
 import io.ktor.http.*
 import io.ktor.http.content.*
-import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.http.content.*
 import io.ktor.server.plugins.cachingheaders.*
@@ -15,6 +16,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.koin.ktor.ext.inject
+import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.io.path.pathString
 import kotlin.time.Duration.Companion.days
@@ -23,6 +25,7 @@ fun Route.fileControllerV2() = route("/file") {
 
     val fileLogic by inject<FileLogic>()
     val fileService by inject<FileService>()
+    val maxUploadSizeBytes = environment.maxUploadSizeBytes
 
     authenticate("auth-jwt") {
         get {
@@ -88,66 +91,46 @@ fun Route.fileControllerV2() = route("/file") {
         }
 
         post("/upload") {
-            val multipart = call.receiveMultipart()
+            val upload = call.receiveMultipart(formFieldLimit = maxUploadSizeBytes).stageUpload()
 
-            var fileName: String? = null
-            var path: String? = null
-            var data: ByteArray? = null
-            var public = false
-
-            multipart.forEachPart { part ->
-                when (part) {
-                    is PartData.FormItem -> {
-                        when (part.name) {
-                            "path" -> path = part.value
-                            "fileName" -> fileName = part.value
-                            "public" -> public = part.value.toBoolean()
-                        }
-                    }
-
-                    is PartData.FileItem -> {
-                        data = part.streamProvider().readBytes()
-                    }
-
-                    else -> throw IllegalArgumentException("Unsupported part type: ${part::class.simpleName}")
-                }
-                part.dispose()
-            }
-
-            requireNotNull(fileName) { "fileName is required" }
-            requireNotNull(path) { "path is required" }
-            requireNotNull(data) { "data is required" }
-
-            val options = BytesFileCreationOptions(
-                path = path!!,
-                fileName = fileName!!,
-                content = data!!,
-                public = public
+            val options = StagedFileCreationOptions(
+                path = upload.path,
+                fileName = upload.fileName,
+                stagedFile = upload.stagedFile,
+                public = upload.public
             )
 
-            when (val result = fileLogic.createFile(options)) {
-                is FileCreationResult.Duplicate -> call.respond(
-                    HttpStatusCode.Conflict,
-                    FileNameWithPath(path = options.path, fileName = options.fileName)
-                )
-
-                is FileCreationResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
-                is FileCreationResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
-                is FileCreationResult.Success -> {
-                    val resultPath = result.path.parent.pathString.replace(
-                        "${if (options.public) System.getenv("PUBLIC_DIRECTORY") else System.getenv("BASE_DIRECTORY")}/",
-                        if (options.public) "public/" else ""
+            try {
+                when (val result = fileLogic.createFile(options)) {
+                    is FileCreationResult.Duplicate -> call.respond(
+                        HttpStatusCode.Conflict,
+                        FileNameWithPath(path = options.path, fileName = options.fileName)
                     )
 
-                    call.respond(
-                        HttpStatusCode.Created,
-                        FileNameWithPath(path = resultPath, fileName = options.fileName)
+                    is FileCreationResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
+                    is FileCreationResult.NotFound -> call.respond(
+                        HttpStatusCode.NotFound,
+                        mapOf("path" to options.path)
                     )
+
+                    is FileCreationResult.Success -> {
+                        val resultPath = result.path.parent.pathString.replace(
+                            "${if (options.public) System.getenv("PUBLIC_DIRECTORY") else System.getenv("BASE_DIRECTORY")}/",
+                            if (options.public) "public/" else ""
+                        )
+
+                        call.respond(
+                            HttpStatusCode.Created,
+                            FileNameWithPath(path = resultPath, fileName = options.fileName)
+                        )
+                    }
+
+                    is FileCreationResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
                 }
-
-                is FileCreationResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
+            } finally {
+                // A no-op once the staged file has been moved to its final location.
+                Files.deleteIfExists(upload.stagedFile)
             }
-
         }
 
         delete {
