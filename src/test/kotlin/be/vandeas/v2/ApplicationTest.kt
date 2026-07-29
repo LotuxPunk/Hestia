@@ -1,5 +1,6 @@
 package be.vandeas.v2
 
+import be.vandeas.config.DEFAULT_MAX_UPLOAD_SIZE_BYTES
 import be.vandeas.dto.Base64FileCreationOptions
 import be.vandeas.dto.ReadFileBytesResult
 import be.vandeas.plugins.configureKoin
@@ -505,6 +506,12 @@ class ApplicationTest {
 
     @Test
     fun `Should be able to upload a file bigger than the default multipart limit`() = testApplication {
+        environment {
+            // Pinned, so that a MAX_UPLOAD_SIZE_BYTES set in the environment running the tests
+            // cannot decide what this test asserts.
+            config = MapApplicationConfig("hestia.upload.maxSizeBytes" to DEFAULT_MAX_UPLOAD_SIZE_BYTES.toString())
+        }
+
         application {
             configureSerialization()
             configureKoin()
