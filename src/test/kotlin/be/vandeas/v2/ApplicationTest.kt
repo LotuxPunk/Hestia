@@ -669,6 +669,59 @@ class ApplicationTest {
     }
 
     @Test
+    fun `Should only be able to embed a file with a valid token`() = testApplication {
+        application {
+            configureSerialization()
+            configureKoin()
+            configureSecurity()
+            configureRouting()
+            configureStatus()
+        }
+
+        val httpClient = client.config {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+
+        val jwt = httpClient.getToken(60.seconds)!!
+        val dirName = UUID.randomUUID().toString()
+        val fileName = "file.txt"
+        val testedFile = this::class.java.classLoader.getResource("input/$fileName")!!.toURI().toPath().toFile()
+
+        httpClient.post("/v2/file") {
+            contentType(ContentType.Application.Json)
+            bearerAuth(jwt)
+            setBody(
+                Base64FileCreationOptions(
+                    path = dirName,
+                    fileName = fileName,
+                    content = testedFile.readBytes().encodeBase64()
+                )
+            )
+        }.apply {
+            assertEquals(HttpStatusCode.Created, status)
+        }
+
+        val invalidTokens = mapOf(
+            "not a token at all" to "not-a-jwt",
+            "an empty token" to "",
+            "a token signed with another secret" to jwt.dropLast(4) + "AAAA"
+        )
+
+        invalidTokens.forEach { (description, token) ->
+            httpClient.get("/v2/file/embed?path=$dirName&fileName=$fileName&token=$token").apply {
+                assertEquals(HttpStatusCode.Unauthorized, status, "Embedded a file with $description")
+            }
+        }
+
+        httpClient.get("/v2/file/embed?path=$dirName&fileName=$fileName&token=$jwt").apply {
+            assertEquals(HttpStatusCode.OK, status)
+            assertEquals(testedFile.readBytes().toList(), bodyAsChannel().toInputStream().readBytes().toList())
+        }
+    }
+
+    @Test
     fun `Should not be able to query a file outside of the public directory`() = testApplication {
         application {
             configureSerialization()

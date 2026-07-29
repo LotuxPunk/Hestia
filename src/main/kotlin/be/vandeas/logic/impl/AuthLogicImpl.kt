@@ -43,8 +43,10 @@ class AuthLogicImpl(
         validateOneTimeToken(token, path).let { protectedMethod() }
 
     override fun <T> guard(jwt: String, protectedMethod: () -> T): T =
-        validateJwtToken(jwt).let {
+        if (validateJwtToken(jwt)) {
             protectedMethod()
+        } else {
+            throw AuthorizationException("Invalid JWT token")
         }
 
     override fun getJwtToken(apiKey: String, duration: Duration): String {
