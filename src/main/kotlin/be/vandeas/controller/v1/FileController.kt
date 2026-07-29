@@ -1,19 +1,22 @@
 package be.vandeas.controller.v1
 
+import be.vandeas.config.maxUploadSizeBytes
+import be.vandeas.controller.stageUpload
 import be.vandeas.domain.*
 import be.vandeas.dto.*
 import be.vandeas.dto.ReadFileBytesResult.Companion.mapToReadFileBytesDto
 import be.vandeas.exception.AuthorizationException
 import be.vandeas.service.v1.FileService
 import io.ktor.http.*
-import io.ktor.http.content.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.koin.ktor.ext.inject
+import java.nio.file.Files
 
 fun Route.fileControllerV1() = route("/file") {
     val fileService by inject<FileService>()
+    val maxUploadSizeBytes = environment.maxUploadSizeBytes
 
     get {
         val path = call.request.queryParameters["path"] ?: ""
@@ -94,46 +97,27 @@ fun Route.fileControllerV1() = route("/file") {
 
     post("/upload") {
         val authorization = call.request.authorization() ?: throw AuthorizationException("Authorization header is required")
-        val multipart = call.receiveMultipart()
+        val upload = call.receiveMultipart(formFieldLimit = maxUploadSizeBytes).stageUpload()
 
-        var fileName: String? = null
-        var path: String? = null
-        var data: ByteArray? = null
-
-        multipart.forEachPart { part ->
-            when (part) {
-                is PartData.FormItem -> {
-                    when (part.name) {
-                        "path" -> path = part.value
-                        "fileName" -> fileName = part.value
-                    }
-                }
-                is PartData.FileItem -> {
-                    data = part.streamProvider().readBytes()
-                }
-                else -> throw IllegalArgumentException("Unsupported part type: ${part::class.simpleName}")
-            }
-            part.dispose()
-        }
-
-        requireNotNull(fileName) { "fileName is required" }
-        requireNotNull(path) { "path is required" }
-        requireNotNull(data) { "data is required" }
-
-        val options = BytesFileCreationOptions(
-            path = path!!,
-            fileName = fileName!!,
-            content = data!!
+        // v1 has no notion of public files, the `public` field of the upload is ignored on purpose.
+        val options = StagedFileCreationOptions(
+            path = upload.path,
+            fileName = upload.fileName,
+            stagedFile = upload.stagedFile
         )
 
-        when (val result = fileService.createFile(authorization, options)) {
-            is FileCreationResult.Duplicate -> call.respond(HttpStatusCode.Conflict, FileNameWithPath(path = options.path, fileName = options.fileName))
-            is FileCreationResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
-            is FileCreationResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
-            is FileCreationResult.Success -> call.respond(HttpStatusCode.Created, FileNameWithPath(path = options.path, fileName = options.fileName))
-            is FileCreationResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
+        try {
+            when (val result = fileService.createFile(authorization, options)) {
+                is FileCreationResult.Duplicate -> call.respond(HttpStatusCode.Conflict, FileNameWithPath(path = options.path, fileName = options.fileName))
+                is FileCreationResult.Failure -> call.respond(HttpStatusCode.InternalServerError, result.message)
+                is FileCreationResult.NotFound -> call.respond(HttpStatusCode.NotFound, mapOf("path" to options.path))
+                is FileCreationResult.Success -> call.respond(HttpStatusCode.Created, FileNameWithPath(path = options.path, fileName = options.fileName))
+                is FileCreationResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, result.message)
+            }
+        } finally {
+            // A no-op once the staged file has been moved to its final location.
+            Files.deleteIfExists(upload.stagedFile)
         }
-
     }
 
     delete {

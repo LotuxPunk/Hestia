@@ -5,6 +5,8 @@ import io.ktor.util.logging.*
 import kotlinx.io.IOException
 import java.net.URI
 import java.nio.file.*
+import java.nio.file.attribute.PosixFileAttributeView
+import java.nio.file.attribute.PosixFilePermissions
 import kotlin.io.path.*
 
 class FileHandler(
@@ -16,12 +18,41 @@ class FileHandler(
     /**
      * Writes a file.
      *
-     * @param path The path to the file to write.
      * @param content The content to write to the file.
+     * @param filePath The path to the file to write.
      *
      * @return A [FileCreationResult] indicating the result of the operation.
      */
-    fun write(content: ByteArray, filePath: Path): FileCreationResult {
+    fun write(content: ByteArray, filePath: Path): FileCreationResult =
+        create(filePath) { path -> Files.write(path, content, StandardOpenOption.CREATE_NEW) }
+
+    /**
+     * Writes a file from an already staged upload, see [be.vandeas.handler.stageToTempFile].
+     *
+     * The staged file is moved, so it no longer exists once the operation succeeded.
+     *
+     * @param stagedFile The path to the staged content.
+     * @param filePath The path to the file to write.
+     *
+     * @return A [FileCreationResult] indicating the result of the operation.
+     */
+    fun write(stagedFile: Path, filePath: Path): FileCreationResult =
+        // Not moved with REPLACE_EXISTING: as CREATE_NEW above, an already existing file has to be
+        // reported as a duplicate instead of being overwritten.
+        // Not moved with ATOMIC_MOVE either: it silently replaces an existing file, and fails when
+        // the staging directory is on another filesystem than the destination.
+        create(filePath) { path -> Files.move(stagedFile, path).alignPermissions() }
+
+    /**
+     * Relaxes the permissions a moved file inherited from its staged version, which is created
+     * private to this process, to the ones a file written in place gets.
+     */
+    private fun Path.alignPermissions(): Path = apply {
+        val attributes = Files.getFileAttributeView(this, PosixFileAttributeView::class.java) ?: return@apply
+        attributes.setPermissions(PosixFilePermissions.fromString("rw-r--r--"))
+    }
+
+    private fun create(filePath: Path, write: (Path) -> Path): FileCreationResult {
         try {
             val path = resolvePath(filePath)
             if (!path.parent.exists()) {
@@ -31,7 +62,7 @@ class FileHandler(
                 }
                 LOGGER.debug("Created directory: {}", path.parent)
             }
-            return FileCreationResult.Success(Files.write(path, content, StandardOpenOption.CREATE_NEW))
+            return FileCreationResult.Success(write(path))
         } catch (e: InvalidPathException) {
             LOGGER.error(e)
             return FileCreationResult.NotFound(filePath)

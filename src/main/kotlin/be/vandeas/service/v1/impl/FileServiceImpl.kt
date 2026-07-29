@@ -16,7 +16,7 @@ class FileServiceImpl(
             fileLogic.createFile(options)
         }
 
-    override fun createFile(token: String, options: BytesFileCreationOptions): FileCreationResult {
+    override fun createFile(token: String, options: StagedFileCreationOptions): FileCreationResult {
         return authLogic.guard(token, Path.of(options.path, options.fileName)) {
             fileLogic.createFile(options)
         }

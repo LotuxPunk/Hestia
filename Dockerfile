@@ -14,5 +14,6 @@ ENV JWT_AUDIENCE=
 ENV JWT_ISSUER=
 ENV JWT_REALM=
 ENV JWT_SECRET=
+ENV MAX_UPLOAD_SIZE_BYTES=536870912
 ENTRYPOINT ["java","-jar","/app/hestia.jar"]
 LABEL org.opencontainers.image.source=https://github.com/LotuxPunk/Hestia
